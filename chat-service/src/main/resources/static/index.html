@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatBroker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+  <style type="text/css">
+    @import "tailwindcss";
+
+    /* Custom utility classes that map to the classes toggled by JS */
+    @utility toast {
+      @apply fixed top-4 right-4 bg-zinc-900 text-zinc-100 border border-zinc-800 py-2.5 px-4 rounded shadow-sm text-xs font-semibold z-50 transition-all duration-200;
+      &.error {
+        @apply border-red-900 bg-red-950/20 text-red-400;
+      }
+      &.success {
+        @apply border-emerald-900 bg-emerald-950/20 text-emerald-400;
+      }
+      &.info {
+        @apply border-zinc-800 bg-zinc-900 text-zinc-300;
+      }
+    }
+
+    @utility active {
+      /* Dynamic active state handled by channel-item utility */
+    }
+
+    @utility channel-item {
+      @apply flex items-center px-2.5 py-1.5 rounded cursor-pointer text-zinc-400 hover:bg-zinc-850 hover:text-zinc-200 transition-colors duration-100 text-xs;
+      &.active {
+        @apply bg-zinc-800 text-zinc-100 font-medium;
+      }
+    }
+
+    @utility channel-icon-dm {
+      @apply w-4 h-4 rounded bg-zinc-800 text-zinc-400 flex items-center justify-center text-[9px] font-bold mr-2 shrink-0 border border-zinc-700/50;
+    }
+
+    @utility channel-name {
+      @apply truncate flex-1;
+    }
+
+    @utility channel-hash {
+      @apply text-sm mr-2 opacity-50 font-mono font-bold;
+    }
+
+    @utility message-group {
+      @apply flex px-6 py-2 border-b border-zinc-900/10 hover:bg-zinc-900/10 transition-colors duration-75;
+    }
+
+    @utility message-group-avatar {
+      @apply w-7 h-7 rounded bg-zinc-800 text-zinc-300 flex items-center justify-center font-bold text-[10px] mr-3 shrink-0 border border-zinc-800;
+    }
+
+    @utility message-group-content {
+      @apply flex-1 min-w-0;
+    }
+
+    @utility message-group-header {
+      @apply flex items-baseline gap-2 mb-0.5;
+    }
+
+    @utility message-group-sender {
+      @apply text-xs font-bold text-zinc-200 hover:underline cursor-pointer;
+    }
+
+    @utility message-group-time {
+      @apply text-[9px] text-zinc-500;
+    }
+
+    @utility message-text {
+      @apply text-xs text-zinc-300 leading-relaxed break-words;
+    }
+
+    @utility consecutive-message {
+      @apply flex py-0.5 px-6 pl-[52px] hover:bg-zinc-900/10 transition-colors duration-75;
+    }
+
+    @utility consecutive-time {
+      @apply text-[8px] text-zinc-600 w-8 text-right -ml-[40px] mr-3 opacity-0 select-none self-center;
+    }
+
+    @utility consecutive-message:hover .consecutive-time {
+      @apply opacity-100;
+    }
+
+    @utility consecutive-text {
+      @apply text-xs text-zinc-300 break-words flex-1;
+    }
+
+    @utility system-notification {
+      @apply py-1 px-6 pl-[52px] text-[11px] text-zinc-500 italic;
+    }
+
+    @utility auth-tab-btn {
+      @apply flex-1 bg-none border-b border-transparent text-zinc-500 py-2.5 text-xs font-semibold cursor-pointer transition-all duration-150;
+      &.active {
+        @apply text-zinc-200 border-zinc-400;
+      }
+    }
+
+    /* Custom Webkit scrollbar customization */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      @apply bg-zinc-800 rounded;
+    }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 font-sans h-screen overflow-hidden flex">
+
+<!-- ─── Auth Screen ─── -->
+<div id="auth-screen" class="fixed inset-0 bg-zinc-950 flex items-center justify-center z-50">
+  <div class="auth-container bg-zinc-900 border border-zinc-800 rounded p-8 w-[380px] shadow-sm">
+    <div class="auth-header text-center mb-6">
+      <h1 class="text-lg font-bold text-zinc-100 mb-1">Sign In</h1>
+      <p class="text-xs text-zinc-500">Access the chat service broker</p>
+    </div>
+    
+    <div class="auth-tabs flex border-b border-zinc-850 mb-6">
+      <button class="auth-tab-btn active" id="tab-login" onclick="switchTab('login')">Login</button>
+      <button class="auth-tab-btn" id="tab-register" onclick="switchTab('register')">Register</button>
+    </div>
+
+    <!-- Login -->
+    <div id="form-login">
+      <div class="form-group mb-4">
+        <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Username</label>
+        <input type="text" id="login-username" autocomplete="username" class="w-full bg-zinc-950 border border-zinc-850 rounded px-3 py-2 text-zinc-100 text-sm focus:outline-none focus:border-zinc-700 transition-colors">
+      </div>
+      <div class="form-group mb-4">
+        <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Password</label>
+        <input type="password" id="login-password" autocomplete="current-password" class="w-full bg-zinc-950 border border-zinc-850 rounded px-3 py-2 text-zinc-100 text-sm focus:outline-none focus:border-zinc-700 transition-colors">
+      </div>
+      <button class="w-full bg-zinc-800 hover:bg-zinc-750 text-zinc-100 py-2 rounded text-xs font-semibold transition-colors cursor-pointer border border-zinc-700" id="login-btn" onclick="handleLogin()">Log In</button>
+      <div class="bg-rose-950/20 border border-rose-900 text-rose-400 text-xs py-2 px-3 rounded mt-4 hidden" id="login-error"></div>
+    </div>
+
+    <!-- Register -->
+    <div id="form-register" style="display:none">
+      <div class="form-group mb-4">
+        <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Username</label>
+        <input type="text" id="reg-username" class="w-full bg-zinc-950 border border-zinc-850 rounded px-3 py-2 text-zinc-100 text-sm focus:outline-none focus:border-zinc-700 transition-colors">
+      </div>
+      <div class="form-group mb-4">
+        <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Display Name</label>
+        <input type="text" id="reg-displayname" placeholder="Your display name" class="w-full bg-zinc-950 border border-zinc-850 rounded px-3 py-2 text-zinc-100 text-sm focus:outline-none focus:border-zinc-700 transition-colors">
+      </div>
+      <div class="form-group mb-4">
+        <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Email Address</label>
+        <input type="email" id="reg-email" class="w-full bg-zinc-950 border border-zinc-850 rounded px-3 py-2 text-zinc-100 text-sm focus:outline-none focus:border-zinc-700 transition-colors">
+      </div>
+      <div class="form-group mb-4">
+        <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Password</label>
+        <input type="password" id="reg-password" placeholder="At least 6 characters" class="w-full bg-zinc-950 border border-zinc-850 rounded px-3 py-2 text-zinc-100 text-sm focus:outline-none focus:border-zinc-700 transition-colors">
+      </div>
+      <button class="w-full bg-zinc-800 hover:bg-zinc-750 text-zinc-100 py-2 rounded text-xs font-semibold transition-colors cursor-pointer border border-zinc-700" id="register-btn" onclick="handleRegister()">Register</button>
+      <div class="bg-rose-950/20 border border-rose-900 text-rose-400 text-xs py-2 px-3 rounded mt-4 hidden" id="register-error"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Main App ─── -->
+<div id="app" class="hidden flex-1 h-screen overflow-hidden">
+  <!-- Sidebar -->
+  <aside class="sidebar w-56 bg-zinc-900 flex flex-col shrink-0 border-r border-zinc-850">
+    <div class="sidebar-header h-12 px-4 flex items-center border-b border-zinc-850">
+      <h2 class="text-[10px] font-bold text-zinc-500 tracking-wider uppercase">Chat Broker</h2>
+    </div>
+    
+    <div class="channels-container flex-1 overflow-y-auto py-4 px-2 flex flex-col gap-6">
+      <!-- Section: Text Channels -->
+      <div class="channels-section">
+        <div class="channels-header flex items-center justify-between text-zinc-500 text-[10px] font-bold uppercase tracking-wider px-2.5 mb-2">
+          <span>Text Channels</span>
+          <button class="btn-add-channel" onclick="showCreateRoomModal()">+</button>
+        </div>
+        <nav class="channel-list" id="room-list">
+          <!-- populated dynamically -->
+        </nav>
+      </div>
+
+      <!-- Section: Direct Messages -->
+      <div class="channels-section">
+        <div class="channels-header flex items-center justify-between text-zinc-500 text-[10px] font-bold uppercase tracking-wider px-2.5 mb-2">
+          <span>Direct Messages</span>
+          <button class="btn-add-channel" onclick="showCreateDmModal()">+</button>
+        </div>
+        <nav class="channel-list" id="dm-list">
+          <!-- populated dynamically -->
+        </nav>
+      </div>
+    </div>
+
+    <!-- User Profile Bar -->
+    <div class="user-panel h-14 bg-zinc-900/50 px-3 flex items-center justify-between border-t border-zinc-850">
+      <div class="user-info flex items-center gap-2.5 min-w-0">
+        <div class="user-avatar w-7 h-7 rounded bg-zinc-850 text-zinc-300 flex items-center justify-center font-bold text-[10px] border border-zinc-800 shrink-0 relative" id="user-avatar">?
+          <div class="user-status-dot w-2 h-2 bg-emerald-500 border border-zinc-900 rounded-full absolute -bottom-0.5 -right-0.5"></div>
+        </div>
+        <div class="user-details flex flex-col min-w-0">
+          <span class="user-name text-xs font-semibold text-zinc-250 truncate" id="user-display-name">Username</span>
+          <span class="user-tag text-[9px] text-zinc-500" id="user-handle">@handle</span>
+        </div>
+      </div>
+      <button class="btn-signout text-zinc-500 hover:text-zinc-300 p-1.5 rounded hover:bg-zinc-800 transition-colors cursor-pointer" onclick="handleLogout()" title="Sign Out">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Chat Workspace -->
+  <main class="chat-pane flex-1 bg-zinc-950 flex flex-col min-w-0">
+    <div class="cover-view flex-1 flex flex-col items-center justify-center text-zinc-500 gap-1" id="empty-state">
+      <h3 class="text-xs font-bold text-zinc-400">No channel selected</h3>
+      <p class="text-[10px] text-zinc-650">Select a text channel or DM on the left to start.</p>
+    </div>
+
+    <div id="chat-view" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+      <header class="chat-header h-12 px-4 flex items-center border-b border-zinc-850 shrink-0 bg-zinc-950">
+        <span class="chat-header-hash text-base text-zinc-500 mr-2 font-mono font-bold" id="current-room-prefix">#</span>
+        <span class="chat-header-name text-sm font-bold text-zinc-150 mr-3" id="current-room-name">general</span>
+        <span class="chat-header-badge text-[9px] bg-zinc-900 border border-zinc-800 text-zinc-400 px-2 py-0.5 rounded font-semibold tracking-wide uppercase mr-3" id="current-room-badge" style="display:none;">PRIVATE</span>
+        <span class="chat-header-desc text-xs text-zinc-500 border-l border-zinc-850 pl-3 truncate max-w-md" id="current-room-desc"></span>
+        <div class="chat-header-actions ml-4 flex items-center gap-2" id="chat-header-actions" style="display:none;">
+          <button class="btn-invite-member bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-zinc-300 py-1 px-2.5 rounded text-[10px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer" onclick="showInviteModal()">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+            Invite User
+          </button>
+        </div>
+        <div class="connection-status ml-auto flex items-center gap-2 text-xs text-zinc-500">
+          <div class="connection-dot w-2 h-2 bg-emerald-500 rounded-full" id="connection-dot"></div>
+          <span id="connection-text" class="text-[11px]">Connected</span>
+        </div>
+      </header>
+
+      <!-- Message Area -->
+      <div class="message-container flex-1 overflow-y-auto py-4 flex flex-col" id="messages"></div>
+
+      <!-- Footer Input Area -->
+      <footer class="input-bar px-4 pb-6 bg-zinc-950 shrink-0">
+        <div class="input-box bg-zinc-900 border border-zinc-850 rounded px-3 py-2 flex items-end gap-3">
+          <button class="input-btn text-zinc-500 hover:text-zinc-350 p-1 flex items-center justify-center transition-colors cursor-pointer" title="Add attachment">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+          </button>
+          <textarea id="message-input" rows="1" placeholder="Send a message..." onkeydown="handleKeyDown(event)" oninput="autoResize(this)" class="flex-1 bg-transparent border-none outline-none text-zinc-200 text-xs resize-none max-h-36 py-1 focus:ring-0"></textarea>
+          <button class="input-btn text-zinc-500 hover:text-zinc-350 p-1 flex items-center justify-center transition-colors cursor-pointer" title="Insert Emoji">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
+          </button>
+        </div>
+      </footer>
+    </div>
+  </main>
+</div>
+
+<!-- Modal: Create Channel -->
+<div class="modal-overlay fixed inset-0 bg-zinc-950/80 flex items-center justify-center z-50 hidden" id="create-room-modal">
+  <div class="modal-card bg-zinc-900 border border-zinc-800 rounded p-6 w-[380px] shadow-lg">
+    <h3 class="text-sm font-bold text-zinc-100 mb-1">Create a Channel</h3>
+    <p class="text-[11px] text-zinc-500 mb-4">Give your new channel a name and description.</p>
+    <div class="form-group mb-4">
+      <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Channel Name</label>
+      <input type="text" id="new-room-name" placeholder="e.g. tech-discussions" class="w-full bg-zinc-950 border border-zinc-850 rounded px-3 py-2 text-zinc-100 text-sm focus:outline-none focus:border-zinc-700 transition-colors">
+    </div>
+    <div class="form-group mb-4">
+      <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Description</label>
+      <input type="text" id="new-room-desc" placeholder="What is this channel for?" class="w-full bg-zinc-950 border border-zinc-850 rounded px-3 py-2 text-zinc-100 text-sm focus:outline-none focus:border-zinc-700 transition-colors">
+    </div>
+    <div class="form-group mb-4">
+      <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Channel Privacy</label>
+      <select id="new-room-type" class="w-full bg-zinc-950 border border-zinc-850 rounded px-3 py-2 text-zinc-100 text-sm focus:outline-none focus:border-zinc-700 transition-colors">
+        <option value="PUBLIC">Public (Anyone can see and join)</option>
+        <option value="PRIVATE">Private (Only invited members)</option>
+      </select>
+    </div>
+    <div class="modal-actions flex justify-end gap-3 mt-6">
+      <button class="btn-secondary text-zinc-400 hover:text-zinc-200 py-1.5 px-3 text-xs font-medium cursor-pointer" onclick="hideCreateRoomModal()">Cancel</button>
+      <button class="btn-action bg-zinc-800 hover:bg-zinc-750 border border-zinc-700 text-zinc-100 py-1.5 px-4 rounded text-xs font-semibold transition-colors cursor-pointer" onclick="createRoom()">Create Channel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Invite Member -->
+<div class="modal-overlay fixed inset-0 bg-zinc-950/80 flex items-center justify-center z-50 hidden" id="invite-member-modal">
+  <div class="modal-card bg-zinc-900 border border-zinc-800 rounded p-6 w-[380px] shadow-lg">
+    <h3 class="text-sm font-bold text-zinc-100 mb-1">Invite Member</h3>
+    <p class="text-[11px] text-zinc-500 mb-4">Enter the username of the person you want to add.</p>
+    <div class="form-group mb-4">
+      <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Username</label>
+      <input type="text" id="invite-username" placeholder="e.g. bob" class="w-full bg-zinc-950 border border-zinc-850 rounded px-3 py-2 text-zinc-100 text-sm focus:outline-none focus:border-zinc-700 transition-colors">
+    </div>
+    <div class="modal-actions flex justify-end gap-3 mt-6">
+      <button class="btn-secondary text-zinc-400 hover:text-zinc-200 py-1.5 px-3 text-xs font-medium cursor-pointer" onclick="hideInviteModal()">Cancel</button>
+      <button class="btn-action bg-zinc-800 hover:bg-zinc-750 border border-zinc-700 text-zinc-100 py-1.5 px-4 rounded text-xs font-semibold transition-colors cursor-pointer" onclick="inviteMember()">Send Invite</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Start DM -->
+<div class="modal-overlay fixed inset-0 bg-zinc-950/80 flex items-center justify-center z-50 hidden" id="create-dm-modal">
+  <div class="modal-card bg-zinc-900 border border-zinc-800 rounded p-6 w-[380px] shadow-lg">
+    <h3 class="text-sm font-bold text-zinc-100 mb-1">Direct Message</h3>
+    <p class="text-[11px] text-zinc-500 mb-4">Start a private 1-on-1 direct message conversation.</p>
+    <div class="form-group mb-4">
+      <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">Recipient's Username</label>
+      <input type="text" id="dm-recipient" placeholder="e.g. alice" class="w-full bg-zinc-950 border border-zinc-850 rounded px-3 py-2 text-zinc-100 text-sm focus:outline-none focus:border-zinc-700 transition-colors">
+    </div>
+    <div class="modal-actions flex justify-end gap-3 mt-6">
+      <button class="btn-secondary text-zinc-400 hover:text-zinc-200 py-1.5 px-3 text-xs font-medium cursor-pointer" onclick="hideCreateDmModal()">Cancel</button>
+      <button class="btn-action bg-zinc-800 hover:bg-zinc-750 border border-zinc-700 text-zinc-100 py-1.5 px-4 rounded text-xs font-semibold transition-colors cursor-pointer" onclick="startDm()">Start Chat</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container" class="fixed top-4 right-4 flex flex-col gap-2 z-50"></div>
+
+<script>
+  let token = localStorage.getItem('jwt_token') || null;
+  let username = localStorage.getItem('chat_username') || null;
+  let displayName = localStorage.getItem('chat_display_name') || null;
+  let stompClient = null;
+  let currentRoom = null;
+  let rooms = [];
+  let subscriptions = {};
+  let lastMessageSender = null;
+  let lastMessageTimestamp = null;
+
+  function toast(msg, type = 'info') {
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.textContent = msg;
+    document.getElementById('toast-container').appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 144) + 'px';
+  }
+
+  function switchTab(tab) {
+    document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+    document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+    document.getElementById('form-login').style.display = tab === 'login' ? 'block' : 'none';
+    document.getElementById('form-register').style.display = tab === 'register' ? 'block' : 'none';
+  }
+
+  async function handleLogin() {
+    const btn = document.getElementById('login-btn');
+    const err = document.getElementById('login-error');
+    btn.disabled = true; btn.textContent = 'Logging in...';
+    err.style.display = 'none';
+    try {
+      const res = await fetch(`${window.location.origin}/api/users/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: document.getElementById('login-username').value.trim(),
+          password: document.getElementById('login-password').value
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Invalid credentials');
+      onAuthSuccess(data);
+    } catch(e) {
+      err.textContent = e.message; err.style.display = 'block';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Log In';
+    }
+  }
+
+  async function handleRegister() {
+    const btn = document.getElementById('register-btn');
+    const err = document.getElementById('register-error');
+    btn.disabled = true; btn.textContent = 'Registering...';
+    err.style.display = 'none';
+    try {
+      const res = await fetch(`${window.location.origin}/api/users/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: document.getElementById('reg-username').value.trim(),
+          displayName: document.getElementById('reg-displayname').value.trim(),
+          email: document.getElementById('reg-email').value.trim(),
+          password: document.getElementById('reg-password').value
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Registration failed');
+      onAuthSuccess(data);
+    } catch(e) {
+      err.textContent = e.message; err.style.display = 'block';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Register';
+    }
+  }
+
+  function onAuthSuccess(data) {
+    token = data.token;
+    username = data.username;
+    displayName = data.displayName || data.username;
+    localStorage.setItem('jwt_token', token);
+    localStorage.setItem('chat_username', username);
+    localStorage.setItem('chat_display_name', displayName);
+    showApp();
+  }
+
+  function handleLogout() {
+    localStorage.clear();
+    token = username = displayName = null;
+    if (stompClient) stompClient.disconnect();
+    stompClient = null; currentRoom = null; subscriptions = {};
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.title = 'ChatBroker';
+    toast('Signed out successfully', 'success');
+  }
+
+  async function showApp() {
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    document.getElementById('user-display-name').textContent = displayName;
+    document.getElementById('user-handle').textContent = `@${username}`;
+    document.getElementById('user-avatar').textContent = displayName.slice(0,2).toUpperCase();
+    await loadRooms();
+    connectWebSocket();
+  }
+
+  async function loadRooms() {
+    try {
+      const res = await fetch(`${window.location.origin}/api/chat/rooms`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      rooms = await res.json();
+      renderRoomList();
+    } catch(e) {
+      toast('Failed to load rooms list', 'error');
+    }
+  }
+
+  function getDmDisplayName(roomName) {
+    // DM room names are structured like: dm-userA-userB
+    // We want to return the username that is NOT the current logged-in user
+    const parts = roomName.split('-');
+    if (parts.length >= 3) {
+      return parts[1] === username ? parts[2] : parts[1];
+    }
+    return roomName;
+  }
+
+  function renderRoomList() {
+    const channelList = document.getElementById('room-list');
+    const dmList = document.getElementById('dm-list');
+    channelList.innerHTML = '';
+    dmList.innerHTML = '';
+
+    rooms.forEach(room => {
+      const div = document.createElement('div');
+      div.className = 'channel-item' + (currentRoom?.id === room.id ? ' active' : '');
+      div.id = `channel-${room.id}`;
+
+      if (room.type === 'DM') {
+        const displayDmName = getDmDisplayName(room.name);
+        div.innerHTML = `
+          <span class="channel-icon-dm">${displayDmName.slice(0,2).toUpperCase()}</span>
+          <span class="channel-name">${escapeHtml(displayDmName)}</span>
+        `;
+        div.onclick = () => selectRoom(room);
+        dmList.appendChild(div);
+      } else {
+        const iconPrefix = room.type === 'PRIVATE' ? '🔒' : '#';
+        div.innerHTML = `
+          <span class="channel-hash">${iconPrefix}</span>
+          <span class="channel-name">${escapeHtml(room.name)}</span>
+        `;
+        div.onclick = () => selectRoom(room);
+        channelList.appendChild(div);
+      }
+    });
+  }
+
+  function connectWebSocket() {
+    const wsUrl = `${window.location.origin}/ws?token=${token}`;
+    const socket = new SockJS(wsUrl);
+    stompClient = Stomp.over(socket);
+    stompClient.debug = null; // suppress STOMP debugging noise
+
+    const dot = document.getElementById('connection-dot');
+    const text = document.getElementById('connection-text');
+
+    stompClient.connect({}, () => {
+      dot.className = 'connection-dot';
+      text.textContent = 'Connected';
+      
+      // Re-subscribe if we had selected a room before disconnect
+      if (currentRoom) {
+        subscribeToRoom(currentRoom.id);
+      }
+    }, (err) => {
+      dot.className = 'connection-dot reconnecting';
+      text.textContent = 'Reconnecting';
+      toast('Connection to chat server lost. Retrying...', 'error');
+      setTimeout(connectWebSocket, 4000);
+    });
+  }
+
+  function subscribeToRoom(roomId) {
+    if (subscriptions[roomId]) return;
+    
+    subscriptions[roomId] = stompClient.subscribe(`/topic/room/${roomId}`, (msg) => {
+      const data = JSON.parse(msg.body);
+      appendMessage(data);
+    });
+    
+    stompClient.send('/app/chat.join', {}, JSON.stringify({ roomId: roomId, content: '' }));
+  }
+
+  async function selectRoom(room) {
+    if (currentRoom) {
+      document.getElementById(`channel-${currentRoom.id}`)?.classList.remove('active');
+      lastMessageSender = null;
+      lastMessageTimestamp = null;
+    }
+    
+    currentRoom = room;
+    document.getElementById(`channel-${room.id}`)?.classList.add('active');
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('chat-view').style.display = 'flex';
+    
+    const prefixEl = document.getElementById('current-room-prefix');
+    const nameEl = document.getElementById('current-room-name');
+    const badgeEl = document.getElementById('current-room-badge');
+    const actionsEl = document.getElementById('chat-header-actions');
+
+    if (room.type === 'DM') {
+      const displayDmName = getDmDisplayName(room.name);
+      prefixEl.textContent = '@';
+      nameEl.textContent = displayDmName;
+      badgeEl.style.display = 'inline-block';
+      badgeEl.textContent = 'Direct Message';
+      badgeEl.className = 'chat-header-badge dm';
+      actionsEl.style.display = 'none';
+      document.title = `@${displayDmName} - ChatBroker`;
+    } else {
+      prefixEl.textContent = '#';
+      nameEl.textContent = room.name;
+      
+      if (room.type === 'PRIVATE') {
+        badgeEl.style.display = 'inline-block';
+        badgeEl.textContent = 'Private';
+        badgeEl.className = 'chat-header-badge private';
+        actionsEl.style.display = 'block'; // Show invite button
+      } else {
+        badgeEl.style.display = 'none';
+        actionsEl.style.display = 'none';
+      }
+      document.title = `#${room.name} - ChatBroker`;
+    }
+    
+    document.getElementById('current-room-desc').textContent = room.description || '';
+    document.getElementById('message-input').placeholder = room.type === 'DM' 
+      ? `Message @${getDmDisplayName(room.name)}`
+      : `Message #${room.name}`;
+
+    const container = document.getElementById('messages');
+    container.innerHTML = '';
+
+    await loadHistory(room.id);
+    
+    if (stompClient?.connected) {
+      subscribeToRoom(room.id);
+    }
+    scrollToBottom();
+  }
+
+  async function loadHistory(roomId) {
+    try {
+      const res = await fetch(`${window.location.origin}/api/chat/rooms/${roomId}/messages?page=0&size=50`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error();
+      const page = await res.json();
+      const messages = (page.content || []).reverse();
+      
+      messages.forEach(msg => appendMessage(msg, true));
+    } catch(e) {
+      toast('Failed to load chat history', 'error');
+    }
+  }
+
+  function appendMessage(msg, isBulk = false) {
+    const container = document.getElementById('messages');
+    
+    if (msg.type === 'JOIN' || msg.type === 'LEAVE') {
+      const div = document.createElement('div');
+      div.className = 'system-notification';
+      div.textContent = `${msg.displayName || msg.sender} ${msg.type === 'JOIN' ? 'joined the channel.' : 'left the channel.'}`;
+      container.appendChild(div);
+      lastMessageSender = null;
+      lastMessageTimestamp = null;
+    } else {
+      const timeObj = msg.timestamp || msg.createdAt;
+      const displayTime = formatTime(timeObj);
+      const isConsecutive = (lastMessageSender === msg.sender) && 
+                            (lastMessageTimestamp && (new Date(timeObj) - new Date(lastMessageTimestamp)) < 300000); // 5 mins
+
+      if (isConsecutive && !isBulk) {
+        const div = document.createElement('div');
+        div.className = 'consecutive-message';
+        div.innerHTML = `
+          <span class="consecutive-time">${formatTimeShort(timeObj)}</span>
+          <div class="consecutive-text">${escapeHtml(msg.content)}</div>`;
+        container.appendChild(div);
+      } else {
+        const div = document.createElement('div');
+        div.className = 'message-group';
+        div.innerHTML = `
+          <div class="message-group-avatar">${(msg.displayName || msg.sender).slice(0,2).toUpperCase()}</div>
+          <div class="message-group-content">
+            <div class="message-group-header">
+              <span class="message-group-sender">${escapeHtml(msg.displayName || msg.sender)}</span>
+              <span class="message-group-time">${displayTime}</span>
+            </div>
+            <div class="message-text">${escapeHtml(msg.content)}</div>
+          </div>`;
+        container.appendChild(div);
+      }
+      
+      lastMessageSender = msg.sender;
+      lastMessageTimestamp = timeObj;
+    }
+    
+    if (!isBulk) scrollToBottom();
+  }
+
+  function formatTime(ts) {
+    const d = ts ? new Date(ts) : new Date();
+    return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function formatTimeShort(ts) {
+    const d = ts ? new Date(ts) : new Date();
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+
+  function scrollToBottom() {
+    const container = document.getElementById('messages');
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function sendMessage() {
+    const input = document.getElementById('message-input');
+    const content = input.value.trim();
+    if (!content || !currentRoom || !stompClient?.connected) return;
+    
+    stompClient.send('/app/chat.send', {}, JSON.stringify({
+      roomId: currentRoom.id,
+      content: content
+    }));
+    
+    input.value = '';
+    input.style.height = 'auto';
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  // Channel Creation
+  function showCreateRoomModal() { document.getElementById('create-room-modal').classList.add('show'); }
+  function hideCreateRoomModal() { document.getElementById('create-room-modal').classList.remove('show'); }
+
+  async function createRoom() {
+    const name = document.getElementById('new-room-name').value.trim();
+    const desc = document.getElementById('new-room-desc').value.trim();
+    const type = document.getElementById('new-room-type').value;
+    if (!name) return toast('Channel name cannot be empty', 'error');
+
+    try {
+      const res = await fetch(`${window.location.origin}/api/chat/rooms`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ name, description: desc, type })
+      });
+      const room = await res.json();
+      if (!res.ok) throw new Error(room.error || 'Failed to create channel');
+      rooms.push(room);
+      renderRoomList();
+      hideCreateRoomModal();
+      document.getElementById('new-room-name').value = '';
+      document.getElementById('new-room-desc').value = '';
+      selectRoom(room);
+    } catch(e) {
+      toast(e.message, 'error');
+    }
+  }
+
+  // Inviting Members
+  function showInviteModal() { document.getElementById('invite-member-modal').classList.add('show'); }
+  function hideInviteModal() { document.getElementById('invite-member-modal').classList.remove('show'); }
+
+  async function inviteMember() {
+    const usernameToInvite = document.getElementById('invite-username').value.trim();
+    if (!usernameToInvite) return toast('Username cannot be empty', 'error');
+    if (usernameToInvite === username) return toast('You are already a member of this channel.', 'error');
+
+    try {
+      const res = await fetch(`${window.location.origin}/api/chat/rooms/${currentRoom.id}/invite`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ username: usernameToInvite })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send invite');
+      toast(`Successfully added @${usernameToInvite} to the channel!`, 'success');
+      hideInviteModal();
+      document.getElementById('invite-username').value = '';
+    } catch(e) {
+      toast(e.message, 'error');
+    }
+  }
+
+  // Direct Messages
+  function showCreateDmModal() { document.getElementById('create-dm-modal').classList.add('show'); }
+  function hideCreateDmModal() { document.getElementById('create-dm-modal').classList.remove('show'); }
+
+  async function startDm() {
+    const recipient = document.getElementById('dm-recipient').value.trim();
+    if (!recipient) return toast('Recipient username is required.', 'error');
+    if (recipient === username) return toast('You cannot start a direct message with yourself.', 'error');
+
+    try {
+      const res = await fetch(`${window.location.origin}/api/chat/rooms/dm`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ username: recipient })
+      });
+      const room = await res.json();
+      if (!res.ok) throw new Error(room.error || 'Failed to start DM');
+      
+      // If room isn't in existing list, add it
+      if (!rooms.some(r => r.id === room.id)) {
+        rooms.push(room);
+      }
+      renderRoomList();
+      hideCreateDmModal();
+      document.getElementById('dm-recipient').value = '';
+      selectRoom(room);
+    } catch(e) {
+      toast(e.message, 'error');
+    }
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+              .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (token && username) {
+      showApp();
+    }
+    document.getElementById('login-password').addEventListener('keydown', e => {
+      if (e.key === 'Enter') handleLogin();
+    });
+  });
+</script>
+</body>
+</html>

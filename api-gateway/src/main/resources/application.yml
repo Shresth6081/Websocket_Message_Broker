@@ -1,0 +1,72 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        - id: user-service
+          uri: ${USER_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - StripPrefix=0
+
+        - id: chat-service-rest
+          uri: ${CHAT_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/chat/**
+          filters:
+            - StripPrefix=0
+
+        - id: chat-service-ws-upgrade
+          uri: ${CHAT_SERVICE_WS_URL:ws://localhost:8081}
+          predicates:
+            - Path=/ws/**
+            - Header=Upgrade, (?i)websocket
+          filters:
+            - StripPrefix=0
+
+        - id: chat-service-ws-http
+          uri: ${CHAT_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/ws/**
+          filters:
+            - StripPrefix=0
+
+        - id: chat-service-static
+          uri: ${CHAT_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/
+          filters:
+            - StripPrefix=0
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+jwt:
+  secret: ${JWT_SECRET:mySecretKeyForJWTSigningThatIsAtLeast32CharactersLong}
+
+rate:
+  limit:
+    capacity: ${RATE_LIMIT_CAPACITY:20}
+    refill:
+      tokens: ${RATE_LIMIT_REFILL_TOKENS:20}
+      seconds: ${RATE_LIMIT_REFILL_SECONDS:10}
+
+logging:
+  level:
+    com.example.gateway: DEBUG
+    org.springframework.cloud.gateway: INFO
