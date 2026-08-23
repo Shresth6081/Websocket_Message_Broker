@@ -9,6 +9,7 @@ import com.example.chatservice.repository.RoomMemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 
@@ -23,6 +24,7 @@ public class ChatRoomService {
 
     private final ChatRoomRepository chatRoomRepository;
     private final RoomMemberRepository roomMemberRepository;
+    private final SimpMessagingTemplate messagingTemplate;
     
     private final RestClient restClient = RestClient.builder()
             .baseUrl("http://user-service:8082")
@@ -120,6 +122,7 @@ public class ChatRoomService {
                 .build();
         roomMemberRepository.save(newMember);
         log.info("User '{}' invited to room '{}' by {}", usernameToInvite, room.getName(), inviter);
+        notifyUserOfNewRoom(usernameToInvite, room);
     }
 
     @Transactional
@@ -139,23 +142,30 @@ public class ChatRoomService {
                 ? "dm-" + userA + "-" + userB 
                 : "dm-" + userB + "-" + userA;
                 
-        return chatRoomRepository.findByName(dmRoomName)
-                .orElseGet(() -> {
-                    ChatRoom newRoom = ChatRoom.builder()
-                            .name(dmRoomName)
-                            .description("Direct Message between " + userA + " and " + userB)
-                            .createdBy("system")
-                            .type(RoomType.DM)
-                            .build();
-                    ChatRoom savedRoom = chatRoomRepository.save(newRoom);
-                    
-                    // Add both users as members
-                    roomMemberRepository.save(RoomMember.builder().roomId(savedRoom.getId()).username(userA).build());
-                    roomMemberRepository.save(RoomMember.builder().roomId(savedRoom.getId()).username(userB).build());
-                    
-                    log.info("Created new DM room: {}", dmRoomName);
-                    return savedRoom;
-                });
+        java.util.Optional<ChatRoom> existingRoom = chatRoomRepository.findByName(dmRoomName);
+        if (existingRoom.isPresent()) {
+            return existingRoom.get();
+        }
+
+        ChatRoom newRoom = ChatRoom.builder()
+                .name(dmRoomName)
+                .description("Direct Message between " + userA + " and " + userB)
+                .createdBy("system")
+                .type(RoomType.DM)
+                .build();
+        ChatRoom savedRoom = chatRoomRepository.save(newRoom);
+        
+        // Add both users as members
+        roomMemberRepository.save(RoomMember.builder().roomId(savedRoom.getId()).username(userA).build());
+        roomMemberRepository.save(RoomMember.builder().roomId(savedRoom.getId()).username(userB).build());
+        
+        log.info("Created new DM room: {}", dmRoomName);
+        
+        // Notify both users via WebSocket about new room
+        notifyUserOfNewRoom(userA, savedRoom);
+        notifyUserOfNewRoom(userB, savedRoom);
+
+        return savedRoom;
     }
 
     private Boolean checkUserExists(String username) {
@@ -186,5 +196,16 @@ public class ChatRoomService {
         r.setDescription(desc);
         r.setType(RoomType.PUBLIC);
         return r;
+    }
+
+    private void notifyUserOfNewRoom(String username, ChatRoom room) {
+        try {
+            messagingTemplate.convertAndSend("/topic/user/" + username, java.util.Map.of(
+                "type", "NEW_ROOM",
+                "room", room
+            ));
+        } catch (Exception e) {
+            log.error("Failed to send room notification to user {}: {}", username, e.getMessage());
+        }
     }
 }

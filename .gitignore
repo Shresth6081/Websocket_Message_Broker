@@ -1,6 +1,10 @@
 # Guides & Documentation (requested to exclude)
 LEARNING_GUIDE.md
 OPERATIONS_GUIDE.md
+INTERVIEW_PREP.md
+CHAT_SERVICE_EXPLAINED.md
+MY_ROLE_INTERVIEW_GUIDE.md
+documents
 
 # Compiled class file
 *.class

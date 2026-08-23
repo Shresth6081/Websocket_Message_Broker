@@ -98,10 +98,25 @@
     }
 
     @utility auth-tab-btn {
-      @apply flex-1 bg-none border-b border-transparent text-zinc-500 py-2.5 text-xs font-semibold cursor-pointer transition-all duration-150;
+      @apply bg-none border-b-2 border-transparent text-zinc-500 pb-2 text-xs font-semibold cursor-pointer transition-all duration-150;
       &.active {
         @apply text-zinc-200 border-zinc-400;
       }
+    }
+
+    /* Fix cursor pointers for interactive elements */
+    .channel-item,
+    .btn-add-channel,
+    .auth-tab-btn,
+    .btn-signout,
+    .btn-invite-member,
+    .btn-action,
+    .btn-secondary,
+    .input-btn,
+    .message-group-sender,
+    .modal-actions button,
+    button {
+      cursor: pointer !important;
     }
 
     /* Custom Webkit scrollbar customization */
@@ -127,8 +142,9 @@
       <p class="text-xs text-zinc-500">Access the chat service broker</p>
     </div>
     
-    <div class="auth-tabs flex border-b border-zinc-850 mb-6">
+    <div class="auth-tabs flex items-center justify-center gap-3 border-b border-zinc-850 mb-6">
       <button class="auth-tab-btn active" id="tab-login" onclick="switchTab('login')">Login</button>
+      <span class="text-zinc-600 text-xs pb-2">/</span>
       <button class="auth-tab-btn" id="tab-register" onclick="switchTab('register')">Register</button>
     </div>
 
@@ -502,6 +518,19 @@
       dot.className = 'connection-dot';
       text.textContent = 'Connected';
       
+      // Subscribe to user-specific channel for real-time room/DM updates
+      stompClient.subscribe(`/topic/user/${username}`, (msg) => {
+        const event = JSON.parse(msg.body);
+        if (event.type === 'NEW_ROOM') {
+          const newRoom = event.room;
+          if (!rooms.some(r => r.id === newRoom.id)) {
+            rooms.push(newRoom);
+            renderRoomList();
+            toast(`New chat available: ${newRoom.type === 'DM' ? 'DM with @' + getDmDisplayName(newRoom.name) : '#' + newRoom.name}`, 'info');
+          }
+        }
+      });
+
       // Re-subscribe if we had selected a room before disconnect
       if (currentRoom) {
         subscribeToRoom(currentRoom.id);
@@ -680,8 +709,8 @@
   }
 
   // Channel Creation
-  function showCreateRoomModal() { document.getElementById('create-room-modal').classList.add('show'); }
-  function hideCreateRoomModal() { document.getElementById('create-room-modal').classList.remove('show'); }
+  function showCreateRoomModal() { document.getElementById('create-room-modal').classList.remove('hidden'); }
+  function hideCreateRoomModal() { document.getElementById('create-room-modal').classList.add('hidden'); }
 
   async function createRoom() {
     const name = document.getElementById('new-room-name').value.trim();
@@ -712,8 +741,8 @@
   }
 
   // Inviting Members
-  function showInviteModal() { document.getElementById('invite-member-modal').classList.add('show'); }
-  function hideInviteModal() { document.getElementById('invite-member-modal').classList.remove('show'); }
+  function showInviteModal() { document.getElementById('invite-member-modal').classList.remove('hidden'); }
+  function hideInviteModal() { document.getElementById('invite-member-modal').classList.add('hidden'); }
 
   async function inviteMember() {
     const usernameToInvite = document.getElementById('invite-username').value.trim();
@@ -740,8 +769,8 @@
   }
 
   // Direct Messages
-  function showCreateDmModal() { document.getElementById('create-dm-modal').classList.add('show'); }
-  function hideCreateDmModal() { document.getElementById('create-dm-modal').classList.remove('show'); }
+  function showCreateDmModal() { document.getElementById('create-dm-modal').classList.remove('hidden'); }
+  function hideCreateDmModal() { document.getElementById('create-dm-modal').classList.add('hidden'); }
 
   async function startDm() {
     const recipient = document.getElementById('dm-recipient').value.trim();

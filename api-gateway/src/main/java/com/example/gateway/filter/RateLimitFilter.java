@@ -2,7 +2,6 @@ package com.example.gateway.filter;
 
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
-import io.github.bucket4j.Refill;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
@@ -62,10 +61,10 @@ public class RateLimitFilter implements GlobalFilter, Ordered {
     }
 
     private Bucket createBucket(String ip) {
-        Bandwidth limit = Bandwidth.classic(
-                capacity,
-                Refill.greedy(refillTokens, Duration.ofSeconds(refillSeconds))
-        );
+        Bandwidth limit = Bandwidth.builder()
+                .capacity(capacity)
+                .refillGreedy(refillTokens, Duration.ofSeconds(refillSeconds))
+                .build();
         return Bucket.builder().addLimit(limit).build();
     }
 

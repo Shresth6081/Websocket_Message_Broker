@@ -1,12 +1,34 @@
 {
   "__inputs": [],
   "__requires": [
-    {"type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0"},
-    {"type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0"},
-    {"type": "panel", "id": "stat", "name": "Stat", "version": ""},
-    {"type": "panel", "id": "timeseries", "name": "Time series", "version": ""}
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "10.0.0"
+    },
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "1.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "stat",
+      "name": "Stat",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    }
   ],
-  "annotations": {"list": []},
+  "annotations": {
+    "list": []
+  },
   "description": "WebSocket Message Broker — real-time monitoring dashboard",
   "editable": true,
   "fiscalYearStartMonth": 0,
@@ -15,113 +37,451 @@
   "links": [],
   "panels": [
     {
-      "id": 1, "type": "stat", "title": "💬 Total Messages Sent",
-      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "orientation": "auto", "textMode": "auto", "colorMode": "background", "graphMode": "area"},
-      "fieldConfig": {
-        "defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "short"},
-        "overrides": []
+      "id": 1,
+      "type": "stat",
+      "title": "💬 Total Messages Sent",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
       },
-      "targets": [{"expr": "sum(chat_messages_total)", "legendFormat": "Total Messages", "refId": "A"}],
-      "datasource": {"type": "prometheus", "uid": "prometheus"}
-    },
-    {
-      "id": 2, "type": "stat", "title": "🔌 Active WebSocket Sessions",
-      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "orientation": "auto", "textMode": "auto", "colorMode": "background", "graphMode": "none"},
-      "fieldConfig": {
-        "defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}, {"color": "green", "value": 1}]}, "unit": "short"},
-        "overrides": []
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area"
       },
-      "targets": [{"expr": "chat_active_sessions", "legendFormat": "Active Sessions", "refId": "A"}],
-      "datasource": {"type": "prometheus", "uid": "prometheus"}
-    },
-    {
-      "id": 3, "type": "stat", "title": "🚫 Rate Limit Blocks / min",
-      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "orientation": "auto", "textMode": "auto", "colorMode": "background", "graphMode": "area"},
       "fieldConfig": {
-        "defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 1}, {"color": "red", "value": 10}]}, "unit": "reqps"},
-        "overrides": []
-      },
-      "targets": [{"expr": "rate(gateway_rate_limit_blocked_total[1m])", "legendFormat": "Blocked req/s", "refId": "A"}],
-      "datasource": {"type": "prometheus", "uid": "prometheus"}
-    },
-    {
-      "id": 4, "type": "stat", "title": "📊 Kafka Consumer Lag",
-      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "orientation": "auto", "textMode": "auto", "colorMode": "background", "graphMode": "none"},
-      "fieldConfig": {
-        "defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 100}, {"color": "red", "value": 1000}]}, "unit": "short"},
-        "overrides": []
-      },
-      "targets": [{"expr": "kafka_consumer_fetch_manager_records_lag_max", "legendFormat": "Max Lag", "refId": "A"}],
-      "datasource": {"type": "prometheus", "uid": "prometheus"}
-    },
-    {
-      "id": 5, "type": "timeseries", "title": "📈 HTTP Request Rate (req/s)",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"showLegend": true, "displayMode": "list", "placement": "bottom"}},
-      "fieldConfig": {
-        "defaults": {"color": {"mode": "palette-classic"}, "custom": {"lineWidth": 2, "fillOpacity": 10}, "unit": "reqps"},
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
         "overrides": []
       },
       "targets": [
-        {"expr": "rate(http_server_requests_seconds_count{job=\"api-gateway\"}[1m])", "legendFormat": "Gateway {{uri}}", "refId": "A"},
-        {"expr": "rate(http_server_requests_seconds_count{job=\"user-service\"}[1m])", "legendFormat": "UserSvc {{uri}}", "refId": "B"},
-        {"expr": "rate(http_server_requests_seconds_count{job=\"chat-service\"}[1m])", "legendFormat": "ChatSvc {{uri}}", "refId": "C"}
+        {
+          "expr": "sum(chat_messages_total)",
+          "legendFormat": "Total Messages",
+          "refId": "A"
+        }
       ],
-      "datasource": {"type": "prometheus", "uid": "prometheus"}
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
     },
     {
-      "id": 6, "type": "timeseries", "title": "🧠 JVM Heap Memory Used",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"showLegend": true, "displayMode": "list", "placement": "bottom"}},
+      "id": 2,
+      "type": "stat",
+      "title": "🔌 Active WebSocket Sessions",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      },
       "fieldConfig": {
-        "defaults": {"color": {"mode": "palette-classic"}, "custom": {"lineWidth": 2, "fillOpacity": 10}, "unit": "bytes"},
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
         "overrides": []
       },
       "targets": [
-        {"expr": "jvm_memory_used_bytes{area=\"heap\", job=\"api-gateway\"}", "legendFormat": "Gateway Heap", "refId": "A"},
-        {"expr": "jvm_memory_used_bytes{area=\"heap\", job=\"user-service\"}", "legendFormat": "UserSvc Heap", "refId": "B"},
-        {"expr": "jvm_memory_used_bytes{area=\"heap\", job=\"chat-service\"}", "legendFormat": "ChatSvc Heap", "refId": "C"}
+        {
+          "expr": "chat_active_sessions",
+          "legendFormat": "Active Sessions",
+          "refId": "A"
+        }
       ],
-      "datasource": {"type": "prometheus", "uid": "prometheus"}
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
     },
     {
-      "id": 7, "type": "timeseries", "title": "💬 Message Throughput",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"showLegend": true}},
+      "id": 3,
+      "type": "stat",
+      "title": "🚫 Rate Limit Blocks / min",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area"
+      },
       "fieldConfig": {
-        "defaults": {"color": {"mode": "palette-classic"}, "custom": {"lineWidth": 2, "fillOpacity": 15}, "unit": "msg/s"},
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
         "overrides": []
       },
       "targets": [
-        {"expr": "rate(chat_messages_total[1m])", "legendFormat": "Messages/sec", "refId": "A"}
+        {
+          "expr": "rate(gateway_rate_limit_blocked_total[1m])",
+          "legendFormat": "Blocked req/s",
+          "refId": "A"
+        }
       ],
-      "datasource": {"type": "prometheus", "uid": "prometheus"}
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
     },
     {
-      "id": 8, "type": "timeseries", "title": "⚡ HTTP Response Latency (p95)",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
-      "options": {"tooltip": {"mode": "multi"}, "legend": {"showLegend": true}},
+      "id": 4,
+      "type": "stat",
+      "title": "📊 Kafka Consumer Lag",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      },
       "fieldConfig": {
-        "defaults": {"color": {"mode": "palette-classic"}, "custom": {"lineWidth": 2, "fillOpacity": 10}, "unit": "s"},
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 100
+              },
+              {
+                "color": "red",
+                "value": 1000
+              }
+            ]
+          },
+          "unit": "short"
+        },
         "overrides": []
       },
       "targets": [
-        {"expr": "histogram_quantile(0.95, rate(http_server_requests_seconds_bucket{job=\"api-gateway\"}[5m]))", "legendFormat": "Gateway p95", "refId": "A"},
-        {"expr": "histogram_quantile(0.95, rate(http_server_requests_seconds_bucket{job=\"user-service\"}[5m]))", "legendFormat": "UserSvc p95", "refId": "B"},
-        {"expr": "histogram_quantile(0.95, rate(http_server_requests_seconds_bucket{job=\"chat-service\"}[5m]))", "legendFormat": "ChatSvc p95", "refId": "C"}
+        {
+          "expr": "kafka_consumer_fetch_manager_records_lag_max",
+          "legendFormat": "Max Lag",
+          "refId": "A"
+        }
       ],
-      "datasource": {"type": "prometheus", "uid": "prometheus"}
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "📈 HTTP Request Rate (req/s)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"api-gateway\"}[1m])",
+          "legendFormat": "Gateway {{uri}}",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"user-service\"}[1m])",
+          "legendFormat": "UserSvc {{uri}}",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"chat-service\"}[1m])",
+          "legendFormat": "ChatSvc {{uri}}",
+          "refId": "C"
+        }
+      ],
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "🧠 JVM Heap Memory Used",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes{area=\"heap\", job=\"api-gateway\"}",
+          "legendFormat": "Gateway Heap",
+          "refId": "A"
+        },
+        {
+          "expr": "jvm_memory_used_bytes{area=\"heap\", job=\"user-service\"}",
+          "legendFormat": "UserSvc Heap",
+          "refId": "B"
+        },
+        {
+          "expr": "jvm_memory_used_bytes{area=\"heap\", job=\"chat-service\"}",
+          "legendFormat": "ChatSvc Heap",
+          "refId": "C"
+        }
+      ],
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "💬 Message Throughput",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "showLegend": true
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15
+          },
+          "unit": "msg/s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(chat_messages_total[1m])",
+          "legendFormat": "Messages/sec",
+          "refId": "A"
+        }
+      ],
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "⚡ HTTP Response Latency (p95)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "showLegend": true
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(http_server_requests_seconds_bucket{job=\"api-gateway\"}[5m]))",
+          "legendFormat": "Gateway p95",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(http_server_requests_seconds_bucket{job=\"user-service\"}[5m]))",
+          "legendFormat": "UserSvc p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(http_server_requests_seconds_bucket{job=\"chat-service\"}[5m]))",
+          "legendFormat": "ChatSvc p95",
+          "refId": "C"
+        }
+      ],
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
     }
   ],
   "refresh": "10s",
   "schemaVersion": 38,
-  "tags": ["websocket", "kafka", "spring-boot", "microservices"],
-  "templating": {"list": []},
-  "time": {"from": "now-30m", "to": "now"},
+  "tags": [
+    "websocket",
+    "kafka",
+    "spring-boot",
+    "microservices"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
   "timepicker": {},
   "timezone": "browser",
   "title": "WebSocket Message Broker",
