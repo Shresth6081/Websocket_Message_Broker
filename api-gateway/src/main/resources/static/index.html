@@ -10,8 +10,6 @@
   <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
   <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
   <style type="text/css">
-    @import "tailwindcss";
-
     .toast {
       position: fixed;
       top: 1rem;
@@ -672,7 +670,7 @@
     const wsUrl = `${window.location.origin}/ws?token=${token}`;
     const socket = new SockJS(wsUrl);
     stompClient = Stomp.over(socket);
-    stompClient.debug = (str) => console.log('[STOMP]', str);
+    stompClient.debug = null;
 
     const dot = document.getElementById('connection-dot');
     const text = document.getElementById('connection-text');
@@ -680,13 +678,11 @@
     stompClient.connect({}, () => {
       dot.className = 'connection-dot';
       text.textContent = 'Connected';
-      console.log('[CHAT] WebSocket connected successfully!');
       
       // Subscribe to user-specific channel for real-time room/DM updates
       stompClient.subscribe(`/topic/user/${username}`, (msg) => {
         try {
           const event = JSON.parse(msg.body);
-          console.log('[CHAT] User notification received:', event);
           if (event.type === 'NEW_ROOM') {
             const newRoom = event.room;
             if (!rooms.some(r => r.id === newRoom.id)) {
@@ -705,7 +701,6 @@
     }, (err) => {
       dot.className = 'connection-dot reconnecting';
       text.textContent = 'Disconnected';
-      console.warn('[CHAT] WebSocket disconnected or failed:', err);
       if (!token) return;
       toast('Connection to chat server lost. Retrying...', 'error');
       reconnectTimeout = setTimeout(connectWebSocket, 5000);
@@ -716,11 +711,9 @@
     if (!stompClient || !stompClient.connected) return;
     if (subscriptions[roomId]) return;
     
-    console.log('[CHAT] Subscribing to /topic/room/' + roomId);
     subscriptions[roomId] = stompClient.subscribe(`/topic/room/${roomId}`, (msg) => {
       try {
         const data = JSON.parse(msg.body);
-        console.log('[CHAT] Message received from WebSocket for room', roomId, data);
         if (currentRoom && data.roomId == currentRoom.id) {
           appendMessage(data);
         }
