@@ -1,10 +1,14 @@
 # 🚀 Distributed WebSocket Message Broker
 ### High-Performance Real-Time Chat System | Spring Boot Microservices
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Render-46E3B7.svg?style=for-the-badge&logo=render)](https://chat-api-gateway-40se.onrender.com)
 [![Java](https://img.shields.io/badge/Java-17-orange.svg?style=for-the-badge&logo=openjdk)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.5-brightgreen.svg?style=for-the-badge&logo=springboot)](https://spring.io/projects/spring-boot)
 [![Apache Kafka](https://img.shields.io/badge/Apache%20Kafka-7.5-black.svg?style=for-the-badge&logo=apachekafka)](https://kafka.apache.org/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-blue.svg?style=for-the-badge&logo=docker)](https://docs.docker.com/compose/)
+
+> 🌐 **Live Demo**: **[https://chat-api-gateway-40se.onrender.com](https://chat-api-gateway-40se.onrender.com)**  
+> *(Hosted live on Render Free Tier with Aiven Cloud Kafka & Managed PostgreSQL)*
 
 A distributed, real-time messaging platform built using Spring Boot Microservices, Apache Kafka, WebSockets (STOMP), PostgreSQL, and a modern Tailwind CSS v4 dark-mode UI. Monitored in real-time with Prometheus and Grafana dashboards.
 
@@ -158,18 +162,29 @@ for ($i=1; $i -le 25; $i++) {
 
 ---
 
+## 🌿 Repository Branches
+
+| Branch | Description | Target Environment |
+|---|---|---|
+| **`main`** | Local development codebase with Docker Compose | Local (`localhost:8085`) |
+| **`deploy-render`** | Cloud-native production deployment with Render Blueprint | Render Cloud (`*.onrender.com`) |
+
+---
+
 ## 🔧 Technologies Used
 
 * **Core Java Framework**: Spring Boot 3.2.5
 * **Security & Auth**: Spring Security + JJWT 0.12.5 (HS256 encryption)
 * **API Gateway**: Spring Cloud Gateway 2023.0.1 (WebClient-backed routing)
 * **Real-time Engine**: Spring WebSocket + STOMP (Native WebSockets fallback to SockJS)
-* **Distributed Messaging**: Apache Kafka + ZooKeeper (Confluent 7.5.0)
+* **Distributed Messaging**: Apache Kafka + ZooKeeper (Confluent 7.5.0) / Aiven Cloud Kafka
 * **Database**: PostgreSQL 16 + Spring Data JPA + Hibernate
 * **Rate Limiting**: Bucket4j 8.10.1 (Token Bucket algorithm)
 * **Metrics & Monitoring**: Micrometer, Prometheus, Grafana, Spring Actuator
 * **UI**: Vanilla HTML5 / ES6 Javascript + Tailwind CSS v4 (Modest Slate/Zinc Theme)
-* **Orchestration**: Docker + Docker Compose
+* **Orchestration & Cloud**: Docker, Docker Compose, Render Blueprint
+* **Hosting**: Render Free Tier
 
 ---
 For more information, visit the [GitHub Repository](https://github.com/Shresth6081/Websocket_Message_Broker).
+
