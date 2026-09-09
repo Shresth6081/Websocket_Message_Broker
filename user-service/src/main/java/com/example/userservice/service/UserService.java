@@ -23,19 +23,22 @@ public class UserService {
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new IllegalArgumentException("Username already taken: " + request.getUsername());
+        String cleanUsername = request.getUsername().trim();
+        String cleanEmail = request.getEmail().trim().toLowerCase();
+
+        if (userRepository.existsByUsernameIgnoreCase(cleanUsername)) {
+            throw new IllegalArgumentException("Username already taken: " + cleanUsername);
         }
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("Email already registered: " + request.getEmail());
+        if (userRepository.existsByEmailIgnoreCase(cleanEmail)) {
+            throw new IllegalArgumentException("Email already registered: " + cleanEmail);
         }
 
         String displayName = request.getDisplayName() != null && !request.getDisplayName().isBlank()
-                ? request.getDisplayName() : request.getUsername();
+                ? request.getDisplayName().trim() : cleanUsername;
 
         User user = User.builder()
-                .username(request.getUsername())
-                .email(request.getEmail())
+                .username(cleanUsername)
+                .email(cleanEmail)
                 .password(passwordEncoder.encode(request.getPassword()))
                 .displayName(displayName)
                 .build();
@@ -54,10 +57,13 @@ public class UserService {
     }
 
     public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByUsername(request.getUsername())
+        String identifier = request.getUsername() != null ? request.getUsername().trim() : "";
+        String password = request.getPassword() != null ? request.getPassword() : "";
+
+        User user = userRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase(identifier, identifier)
                 .orElseThrow(() -> new BadCredentialsException("Invalid username or password"));
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new BadCredentialsException("Invalid username or password");
         }
 
@@ -74,6 +80,7 @@ public class UserService {
     }
 
     public boolean existsByUsername(String username) {
-        return userRepository.existsByUsername(username);
+        if (username == null || username.trim().isEmpty()) return false;
+        return userRepository.existsByUsernameIgnoreCase(username.trim());
     }
 }
