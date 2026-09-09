@@ -818,39 +818,38 @@
     if (msg.type === 'JOIN' || msg.type === 'LEAVE') return;
 
     const container = document.getElementById('messages');
-      const timeObj = msg.timestamp || msg.createdAt;
-      const displayTime = formatTime(timeObj);
-      const isConsecutive = (lastMessageSender === msg.sender) && 
-                            (lastMessageTimestamp && (new Date(timeObj) - new Date(lastMessageTimestamp)) < 300000); // 5 mins
+    const timeObj = msg.timestamp || msg.createdAt;
+    const displayTime = formatTime(timeObj);
+    const isConsecutive = (lastMessageSender === msg.sender) && 
+                          (lastMessageTimestamp && (new Date(timeObj) - new Date(lastMessageTimestamp)) < 300000); // 5 mins
 
-      if (isConsecutive && !isBulk) {
-        const div = document.createElement('div');
-        div.className = 'consecutive-message';
-        div.innerHTML = `
-          <span class="consecutive-time">${formatTimeShort(timeObj)}</span>
-          <div class="consecutive-text">${escapeHtml(msg.content)}</div>`;
-        container.appendChild(div);
-      } else {
-        const senderName = msg.displayName || msg.sender;
-        const initials = (senderName || '??').slice(0,2).toUpperCase();
-        const avatarColor = getAvatarColor(senderName);
-        const div = document.createElement('div');
-        div.className = 'message-group';
-        div.innerHTML = `
-          <div class="message-group-avatar" style="background-color: ${avatarColor}; color: #ffffff;">${initials}</div>
-          <div class="message-group-content">
-            <div class="message-group-header">
-              <span class="message-group-sender">${escapeHtml(senderName)}</span>
-              <span class="message-group-time">${displayTime}</span>
-            </div>
-            <div class="message-text">${escapeHtml(msg.content)}</div>
-          </div>`;
-        container.appendChild(div);
-      }
-      
-      lastMessageSender = msg.sender;
-      lastMessageTimestamp = timeObj;
+    if (isConsecutive && !isBulk) {
+      const div = document.createElement('div');
+      div.className = 'consecutive-message';
+      div.innerHTML = `
+        <span class="consecutive-time">${formatTimeShort(timeObj)}</span>
+        <div class="consecutive-text">${escapeHtml(msg.content)}</div>`;
+      container.appendChild(div);
+    } else {
+      const senderName = msg.displayName || msg.sender;
+      const initials = (senderName || '??').slice(0,2).toUpperCase();
+      const avatarColor = getAvatarColor(senderName);
+      const div = document.createElement('div');
+      div.className = 'message-group';
+      div.innerHTML = `
+        <div class="message-group-avatar" style="background-color: ${avatarColor}; color: #ffffff;">${initials}</div>
+        <div class="message-group-content">
+          <div class="message-group-header">
+            <span class="message-group-sender">${escapeHtml(senderName)}</span>
+            <span class="message-group-time">${displayTime}</span>
+          </div>
+          <div class="message-text">${escapeHtml(msg.content)}</div>
+        </div>`;
+      container.appendChild(div);
     }
+    
+    lastMessageSender = msg.sender;
+    lastMessageTimestamp = timeObj;
     
     if (!isBulk) scrollToBottom();
   }
