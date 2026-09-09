@@ -96,7 +96,9 @@ services:
         value: SASL_SSL
       - key: KAFKA_SASL_MECHANISM
         value: SCRAM-SHA-256
-      - key: KAFKA_SASL_JAAS_CONFIG
+      - key: KAFKA_SASL_USERNAME
+        value: avnadmin
+      - key: KAFKA_SASL_PASSWORD
         sync: false
 
 databases:
