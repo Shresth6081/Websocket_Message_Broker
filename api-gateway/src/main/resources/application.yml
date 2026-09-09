@@ -36,13 +36,6 @@ spring:
           filters:
             - StripPrefix=0
 
-        - id: chat-service-static
-          uri: ${CHAT_SERVICE_URL:http://localhost:8081}
-          predicates:
-            - Path=/
-          filters:
-            - StripPrefix=0
-
 management:
   endpoints:
     web:
@@ -61,9 +54,9 @@ jwt:
 
 rate:
   limit:
-    capacity: ${RATE_LIMIT_CAPACITY:20}
+    capacity: ${RATE_LIMIT_CAPACITY:50}
     refill:
-      tokens: ${RATE_LIMIT_REFILL_TOKENS:20}
+      tokens: ${RATE_LIMIT_REFILL_TOKENS:50}
       seconds: ${RATE_LIMIT_REFILL_SECONDS:10}
 
 logging:
