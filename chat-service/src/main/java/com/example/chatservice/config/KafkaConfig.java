@@ -56,9 +56,16 @@ public class KafkaConfig {
             String jaas = resolveJaasConfig();
             if (jaas != null && !jaas.trim().isEmpty()) {
                 props.put(SaslConfigs.SASL_JAAS_CONFIG, jaas.trim());
-                log.info("Configured Kafka SASL authentication (protocol={}, mechanism={})", securityProtocol, saslMechanism);
+                log.info("Configured Kafka SASL authentication (protocol={}, mechanism={}, username={})",
+                        securityProtocol, saslMechanism, saslUsername);
             } else {
-                log.warn("Kafka security protocol is '{}' but no SASL credentials (JAAS config or password) were provided!", securityProtocol);
+                log.error("====================================================================");
+                log.error("[ERROR] Kafka security protocol is '{}' but NO password was provided!", securityProtocol);
+                log.error("[ACTION REQUIRED] Set 'KAFKA_SASL_PASSWORD' in Render Dashboard > chat-service > Environment!");
+                log.error("====================================================================");
+                throw new IllegalStateException(
+                    "Missing Kafka SASL Password! Please set the 'KAFKA_SASL_PASSWORD' environment variable in your Render dashboard for chat-service."
+                );
             }
         } else {
             props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "PLAINTEXT");
