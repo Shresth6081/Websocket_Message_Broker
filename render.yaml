@@ -14,11 +14,11 @@ services:
       - key: PORT
         value: 8080
       - key: USER_SERVICE_URL
-        value: http://user-service:8082
+        value: https://user-service-fcxc.onrender.com
       - key: CHAT_SERVICE_URL
-        value: http://chat-service:8081
+        value: https://chat-service-0yxi.onrender.com
       - key: CHAT_SERVICE_WS_URL
-        value: ws://chat-service:8081
+        value: wss://chat-service-0yxi.onrender.com
       - key: JWT_SECRET
         generateValue: true
       - key: RATE_LIMIT_CAPACITY
