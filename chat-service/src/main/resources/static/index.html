@@ -495,9 +495,19 @@
   let backendReady = false;
   let backendCheckInterval = null;
 
+  function pingDirectCloudServices() {
+    if (window.location.hostname.includes('onrender.com')) {
+      // Send direct wake-up triggers to Render's public router (bypasses Gateway)
+      try { fetch('https://user-service-fcxc.onrender.com/actuator/health', { mode: 'no-cors', cache: 'no-store' }).catch(() => {}); } catch(e) {}
+      try { fetch('https://chat-service-0yxi.onrender.com/actuator/health', { mode: 'no-cors', cache: 'no-store' }).catch(() => {}); } catch(e) {}
+    }
+  }
+
   async function checkAndWarmBackend() {
     const dot = document.getElementById('backend-status-dot');
     const text = document.getElementById('backend-status-text');
+
+    pingDirectCloudServices();
 
     try {
       const [uRes, cRes] = await Promise.all([
@@ -523,7 +533,7 @@
         backendReady = false;
         if (dot) dot.className = 'inline-block w-2 h-2 rounded-full status-dot-waking animate-pulse';
         if (text) {
-          text.textContent = 'Waking up cloud servers (~25s)...';
+          text.textContent = 'Waking up cloud servers (~30s)...';
           text.className = 'text-amber-400 text-[11px]';
         }
       }
@@ -531,7 +541,7 @@
       backendReady = false;
       if (dot) dot.className = 'inline-block w-2 h-2 rounded-full status-dot-waking animate-pulse';
       if (text) {
-        text.textContent = 'Waking up cloud servers (~25s)...';
+        text.textContent = 'Waking up cloud servers (~30s)...';
         text.className = 'text-amber-400 text-[11px]';
       }
     }
@@ -553,11 +563,13 @@
     btn.disabled = true;
     err.style.display = 'none';
 
-    const maxRetries = 6;
+    const maxRetries = 15;
     let attempt = 0;
 
     while (attempt < maxRetries) {
       attempt++;
+      pingDirectCloudServices();
+
       if (attempt === 1) {
         btn.textContent = 'Logging in...';
       } else {
@@ -647,11 +659,13 @@
     btn.disabled = true;
     err.style.display = 'none';
 
-    const maxRetries = 6;
+    const maxRetries = 15;
     let attempt = 0;
 
     while (attempt < maxRetries) {
       attempt++;
+      pingDirectCloudServices();
+
       if (attempt === 1) {
         btn.textContent = 'Registering...';
       } else {
