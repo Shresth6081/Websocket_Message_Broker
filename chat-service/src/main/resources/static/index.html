@@ -206,6 +206,16 @@
       border-color: #a1a1aa;
     }
 
+    .status-dot-online {
+      background-color: #22c55e !important;
+      box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
+      animation: none !important;
+    }
+    .status-dot-waking {
+      background-color: #f59e0b !important;
+      box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+    }
+
     /* Fix cursor pointers for interactive elements */
     .channel-item,
     .btn-add-channel,
@@ -284,6 +294,15 @@
       </div>
       <button class="w-full bg-zinc-800 hover:bg-zinc-750 text-zinc-100 py-2 rounded text-xs font-semibold transition-colors cursor-pointer border border-zinc-700" id="register-btn" onclick="handleRegister()">Register</button>
       <div class="bg-rose-950/20 border border-rose-900 text-rose-400 text-xs py-2 px-3 rounded mt-4 hidden" id="register-error"></div>
+    </div>
+
+    <!-- Cloud Service Status Pill -->
+    <div id="backend-status-pill" class="mt-5 pt-4 border-t border-zinc-850 flex items-center justify-between text-[11px] text-zinc-500">
+      <span class="flex items-center gap-2">
+        <span id="backend-status-dot" class="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+        <span id="backend-status-text">Checking cloud microservices...</span>
+      </span>
+      <span class="text-[10px] text-zinc-600 font-mono">Render Free</span>
     </div>
   </div>
 </div>
@@ -473,6 +492,51 @@
     document.getElementById('form-register').style.display = tab === 'register' ? 'block' : 'none';
   }
 
+  let backendReady = false;
+  let backendCheckInterval = null;
+
+  async function checkAndWarmBackend() {
+    const dot = document.getElementById('backend-status-dot');
+    const text = document.getElementById('backend-status-text');
+
+    try {
+      const [uRes, cRes] = await Promise.all([
+        fetch(`${window.location.origin}/api/users/health`, { cache: 'no-store' }).catch(() => null),
+        fetch(`${window.location.origin}/api/chat/health`, { cache: 'no-store' }).catch(() => null)
+      ]);
+
+      const userOk = uRes && uRes.ok;
+      const chatOk = cRes && cRes.ok;
+
+      if (userOk && chatOk) {
+        backendReady = true;
+        if (dot) dot.className = 'inline-block w-2 h-2 rounded-full status-dot-online';
+        if (text) {
+          text.textContent = 'Cloud microservices: Online';
+          text.className = 'text-zinc-400 text-[11px]';
+        }
+        if (backendCheckInterval) {
+          clearInterval(backendCheckInterval);
+          backendCheckInterval = null;
+        }
+      } else {
+        backendReady = false;
+        if (dot) dot.className = 'inline-block w-2 h-2 rounded-full status-dot-waking animate-pulse';
+        if (text) {
+          text.textContent = 'Waking up cloud servers (~25s)...';
+          text.className = 'text-amber-400 text-[11px]';
+        }
+      }
+    } catch(e) {
+      backendReady = false;
+      if (dot) dot.className = 'inline-block w-2 h-2 rounded-full status-dot-waking animate-pulse';
+      if (text) {
+        text.textContent = 'Waking up cloud servers (~25s)...';
+        text.className = 'text-amber-400 text-[11px]';
+      }
+    }
+  }
+
   async function handleLogin() {
     const btn = document.getElementById('login-btn');
     const err = document.getElementById('login-error');
@@ -481,27 +545,76 @@
 
     if (!u || !p) {
       err.textContent = 'Please enter both username and password';
+      err.className = 'bg-rose-950/20 border border-rose-900 text-rose-400 text-xs py-2 px-3 rounded mt-4';
       err.style.display = 'block';
       return;
     }
 
-    btn.disabled = true; btn.textContent = 'Logging in...';
+    btn.disabled = true;
     err.style.display = 'none';
-    try {
-      const res = await fetch(`${window.location.origin}/api/users/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: u, password: p })
-      });
-      let data = {};
-      try { data = await res.json(); } catch(jsonErr) {}
-      if (!res.ok) throw new Error(data.error || 'Invalid credentials');
-      onAuthSuccess(data);
-    } catch(e) {
-      err.textContent = e.message; err.style.display = 'block';
-    } finally {
-      btn.disabled = false; btn.textContent = 'Log In';
+
+    const maxRetries = 6;
+    let attempt = 0;
+
+    while (attempt < maxRetries) {
+      attempt++;
+      if (attempt === 1) {
+        btn.textContent = 'Logging in...';
+      } else {
+        btn.textContent = `Waking server... (${attempt}/${maxRetries})`;
+        err.innerHTML = `<span class="inline-block animate-spin mr-1">⏳</span> Backend waking up from free-tier sleep. Retrying automatically (${attempt}/${maxRetries})...`;
+        err.className = 'bg-amber-950/20 border border-amber-800 text-amber-300 text-xs py-2 px-3 rounded mt-4';
+        err.style.display = 'block';
+      }
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+        const res = await fetch(`${window.location.origin}/api/users/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: u, password: p }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        let data = {};
+        try { data = await res.json(); } catch(jsonErr) {}
+
+        if (res.ok) {
+          err.style.display = 'none';
+          btn.textContent = 'Success!';
+          onAuthSuccess(data);
+          return;
+        }
+
+        if (res.status === 400 || res.status === 401) {
+          throw new Error(data.error || 'Invalid credentials');
+        }
+
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, 4000));
+          continue;
+        } else {
+          throw new Error(data.error || 'Server cold start taking longer than expected. Please retry in a moment.');
+        }
+      } catch(e) {
+        if (e.name === 'AbortError' || e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+          if (attempt < maxRetries) {
+            await new Promise(r => setTimeout(r, 4000));
+            continue;
+          }
+        }
+        err.textContent = e.message || 'Login failed';
+        err.className = 'bg-rose-950/20 border border-rose-900 text-rose-400 text-xs py-2 px-3 rounded mt-4';
+        err.style.display = 'block';
+        break;
+      }
     }
+
+    btn.disabled = false;
+    btn.textContent = 'Log In';
   }
 
   async function handleRegister() {
@@ -514,42 +627,93 @@
 
     if (!u || u.length < 3) {
       err.textContent = 'Username must be at least 3 characters';
+      err.className = 'bg-rose-950/20 border border-rose-900 text-rose-400 text-xs py-2 px-3 rounded mt-4';
       err.style.display = 'block';
       return;
     }
     if (!em || !em.includes('@') || !em.includes('.')) {
       err.textContent = 'Please enter a valid email address (e.g. name@example.com)';
+      err.className = 'bg-rose-950/20 border border-rose-900 text-rose-400 text-xs py-2 px-3 rounded mt-4';
       err.style.display = 'block';
       return;
     }
     if (!p || p.length < 6) {
       err.textContent = 'Password must be at least 6 characters';
+      err.className = 'bg-rose-950/20 border border-rose-900 text-rose-400 text-xs py-2 px-3 rounded mt-4';
       err.style.display = 'block';
       return;
     }
 
-    btn.disabled = true; btn.textContent = 'Registering...';
+    btn.disabled = true;
     err.style.display = 'none';
-    try {
-      const res = await fetch(`${window.location.origin}/api/users/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: u,
-          displayName: d || u,
-          email: em,
-          password: p
-        })
-      });
-      let data = {};
-      try { data = await res.json(); } catch(jsonErr) {}
-      if (!res.ok) throw new Error(data.error || 'Registration failed');
-      onAuthSuccess(data);
-    } catch(e) {
-      err.textContent = e.message; err.style.display = 'block';
-    } finally {
-      btn.disabled = false; btn.textContent = 'Register';
+
+    const maxRetries = 6;
+    let attempt = 0;
+
+    while (attempt < maxRetries) {
+      attempt++;
+      if (attempt === 1) {
+        btn.textContent = 'Registering...';
+      } else {
+        btn.textContent = `Waking server... (${attempt}/${maxRetries})`;
+        err.innerHTML = `<span class="inline-block animate-spin mr-1">⏳</span> Backend waking up from free-tier sleep. Retrying automatically (${attempt}/${maxRetries})...`;
+        err.className = 'bg-amber-950/20 border border-amber-800 text-amber-300 text-xs py-2 px-3 rounded mt-4';
+        err.style.display = 'block';
+      }
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+        const res = await fetch(`${window.location.origin}/api/users/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: u,
+            displayName: d || u,
+            email: em,
+            password: p
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        let data = {};
+        try { data = await res.json(); } catch(jsonErr) {}
+
+        if (res.ok) {
+          err.style.display = 'none';
+          btn.textContent = 'Success!';
+          onAuthSuccess(data);
+          return;
+        }
+
+        if (res.status === 400 || res.status === 409) {
+          throw new Error(data.error || 'Registration failed');
+        }
+
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, 4000));
+          continue;
+        } else {
+          throw new Error(data.error || 'Server cold start taking longer than expected. Please retry in a moment.');
+        }
+      } catch(e) {
+        if (e.name === 'AbortError' || e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+          if (attempt < maxRetries) {
+            await new Promise(r => setTimeout(r, 4000));
+            continue;
+          }
+        }
+        err.textContent = e.message || 'Registration failed';
+        err.className = 'bg-rose-950/20 border border-rose-900 text-rose-400 text-xs py-2 px-3 rounded mt-4';
+        err.style.display = 'block';
+        break;
+      }
     }
+
+    btn.disabled = false;
+    btn.textContent = 'Register';
   }
 
   function onAuthSuccess(data) {
@@ -676,6 +840,7 @@
     const text = document.getElementById('connection-text');
 
     stompClient.connect({}, () => {
+      if (!stompClient || !token) return;
       dot.className = 'connection-dot';
       text.textContent = 'Connected';
       
@@ -991,11 +1156,9 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    // Pre-warm backend microservices on Render in the background
-    try {
-      fetch(`${window.location.origin}/api/users/health`).catch(() => {});
-      fetch(`${window.location.origin}/api/chat/health`).catch(() => {});
-    } catch(e) {}
+    // Start continuous backend pre-warming and health checks
+    checkAndWarmBackend();
+    backendCheckInterval = setInterval(checkAndWarmBackend, 4000);
 
     if (token && username) {
       showApp();
