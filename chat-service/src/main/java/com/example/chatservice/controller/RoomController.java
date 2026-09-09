@@ -101,4 +101,9 @@ public class RoomController {
         Page<ChatMessage> messages = chatMessageRepository.findByRoomIdOrderByCreatedAtDesc(roomId, pageable);
         return ResponseEntity.ok(messages.map(ChatMessageDTO::from));
     }
+
+    @GetMapping("/health")
+    public ResponseEntity<Map<String, String>> health() {
+        return ResponseEntity.ok(Map.of("status", "UP", "service", "chat-service"));
+    }
 }

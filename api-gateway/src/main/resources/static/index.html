@@ -991,6 +991,12 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    // Pre-warm backend microservices on Render in the background
+    try {
+      fetch(`${window.location.origin}/api/users/health`).catch(() => {});
+      fetch(`${window.location.origin}/api/chat/health`).catch(() => {});
+    } catch(e) {}
+
     if (token && username) {
       showApp();
     }
