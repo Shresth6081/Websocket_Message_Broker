@@ -596,6 +596,9 @@
     const roomsLoaded = await loadRooms();
     if (roomsLoaded) {
       connectWebSocket();
+      if (!currentRoom && rooms.length > 0) {
+        selectRoom(rooms[0]);
+      }
     }
   }
 
@@ -680,15 +683,17 @@
       
       // Subscribe to user-specific channel for real-time room/DM updates
       stompClient.subscribe(`/topic/user/${username}`, (msg) => {
-        const event = JSON.parse(msg.body);
-        if (event.type === 'NEW_ROOM') {
-          const newRoom = event.room;
-          if (!rooms.some(r => r.id === newRoom.id)) {
-            rooms.push(newRoom);
-            renderRoomList();
-            toast(`New chat available: ${newRoom.type === 'DM' ? 'DM with @' + getDmDisplayName(newRoom.name) : '#' + newRoom.name}`, 'info');
+        try {
+          const event = JSON.parse(msg.body);
+          if (event.type === 'NEW_ROOM') {
+            const newRoom = event.room;
+            if (!rooms.some(r => r.id === newRoom.id)) {
+              rooms.push(newRoom);
+              renderRoomList();
+              toast(`New chat available: ${newRoom.type === 'DM' ? 'DM with @' + getDmDisplayName(newRoom.name) : '#' + newRoom.name}`, 'info');
+            }
           }
-        }
+        } catch(e) {}
       });
 
       // Re-subscribe if we had selected a room before disconnect
@@ -708,16 +713,26 @@
     if (subscriptions[roomId]) return;
     
     subscriptions[roomId] = stompClient.subscribe(`/topic/room/${roomId}`, (msg) => {
-      const data = JSON.parse(msg.body);
-      appendMessage(data);
+      try {
+        const data = JSON.parse(msg.body);
+        if (currentRoom && data.roomId == currentRoom.id) {
+          appendMessage(data);
+        }
+      } catch (err) {
+        console.error('Failed to parse WebSocket message:', err);
+      }
     });
     
     stompClient.send('/app/chat.join', {}, JSON.stringify({ roomId: roomId, content: '' }));
   }
 
   async function selectRoom(room) {
-    if (currentRoom) {
+    if (currentRoom && currentRoom.id !== room.id) {
       document.getElementById(`channel-${currentRoom.id}`)?.classList.remove('active');
+      if (subscriptions[currentRoom.id]) {
+        try { subscriptions[currentRoom.id].unsubscribe(); } catch(e) {}
+        delete subscriptions[currentRoom.id];
+      }
       lastMessageSender = null;
       lastMessageTimestamp = null;
     }

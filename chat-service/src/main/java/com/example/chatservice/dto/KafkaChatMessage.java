@@ -1,6 +1,7 @@
 package com.example.chatservice.dto;
 
 import com.example.chatservice.model.ChatMessage;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,5 +19,7 @@ public class KafkaChatMessage {
     private String displayName;
     private String content;
     private ChatMessage.MessageType type;
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS")
     private LocalDateTime timestamp;
 }

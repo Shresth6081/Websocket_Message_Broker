@@ -1,6 +1,10 @@
 package com.example.chatservice.config;
 
 import com.example.chatservice.dto.KafkaChatMessage;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -87,6 +91,14 @@ public class KafkaConfig {
         return null;
     }
 
+    private ObjectMapper createKafkaObjectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        return mapper;
+    }
+
     @Bean
     public KafkaAdmin kafkaAdmin() {
         Map<String, Object> configs = getCommonConfigs();
@@ -98,8 +110,15 @@ public class KafkaConfig {
         Map<String, Object> configProps = getCommonConfigs();
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
-        configProps.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
-        return new DefaultKafkaProducerFactory<>(configProps);
+
+        JsonSerializer<KafkaChatMessage> jsonSerializer = new JsonSerializer<>(createKafkaObjectMapper());
+        jsonSerializer.setAddTypeInfo(false);
+
+        return new DefaultKafkaProducerFactory<>(
+                configProps,
+                new StringSerializer(),
+                jsonSerializer
+        );
     }
 
     @Bean
@@ -115,7 +134,7 @@ public class KafkaConfig {
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
 
-        JsonDeserializer<KafkaChatMessage> jsonDeserializer = new JsonDeserializer<>(KafkaChatMessage.class);
+        JsonDeserializer<KafkaChatMessage> jsonDeserializer = new JsonDeserializer<>(KafkaChatMessage.class, createKafkaObjectMapper());
         jsonDeserializer.addTrustedPackages("*");
         jsonDeserializer.setRemoveTypeHeaders(false);
         jsonDeserializer.setUseTypeMapperForKey(false);

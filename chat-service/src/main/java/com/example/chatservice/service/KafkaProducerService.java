@@ -16,13 +16,14 @@ public class KafkaProducerService {
 
     public void sendMessage(KafkaChatMessage message) {
         String key = String.valueOf(message.getRoomId());
+        log.info("Sending Kafka message for room {} (sender={}): {}", message.getRoomId(), message.getSender(), message.getContent());
         kafkaTemplate.send(TOPIC, key, message)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
-                        log.error("Failed to send Kafka message for room {}: {}", message.getRoomId(), ex.getMessage());
+                        log.error("Failed to send Kafka message for room {}: {}", message.getRoomId(), ex.getMessage(), ex);
                     } else {
-                        log.debug("Kafka message sent to topic {} partition {} for room {}",
-                                TOPIC, result.getRecordMetadata().partition(), message.getRoomId());
+                        log.info("Kafka message sent to topic {} partition {} offset {} for room {}",
+                                TOPIC, result.getRecordMetadata().partition(), result.getRecordMetadata().offset(), message.getRoomId());
                     }
                 });
     }

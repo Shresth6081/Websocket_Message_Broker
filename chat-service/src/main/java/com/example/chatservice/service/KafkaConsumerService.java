@@ -17,8 +17,10 @@ public class KafkaConsumerService {
     @KafkaListener(topics = "chat-messages", groupId = "chat-service-group",
                    containerFactory = "kafkaListenerContainerFactory")
     public void consumeMessage(KafkaChatMessage message) {
-        log.debug("Consumed Kafka message from room {}: {}", message.getRoomId(), message.getSender());
+        log.info("Consumed Kafka message from room {}: sender={}, type={}, content={}",
+                message.getRoomId(), message.getSender(), message.getType(), message.getContent());
         String destination = "/topic/room/" + message.getRoomId();
         messagingTemplate.convertAndSend(destination, message);
+        log.info("Successfully pushed message to STOMP topic: {}", destination);
     }
 }
