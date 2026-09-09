@@ -8,6 +8,7 @@ import com.example.chatservice.repository.ChatRoomRepository;
 import com.example.chatservice.repository.RoomMemberRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,15 +25,18 @@ public class ChatRoomService {
     private final ChatRoomRepository chatRoomRepository;
     private final RoomMemberRepository roomMemberRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final JdbcTemplate jdbcTemplate;
     private final RestClient restClient;
 
     public ChatRoomService(ChatRoomRepository chatRoomRepository,
                            RoomMemberRepository roomMemberRepository,
                            SimpMessagingTemplate messagingTemplate,
+                           JdbcTemplate jdbcTemplate,
                            @Value("${USER_SERVICE_URL:https://user-service-fcxc.onrender.com}") String userServiceUrl) {
         this.chatRoomRepository = chatRoomRepository;
         this.roomMemberRepository = roomMemberRepository;
         this.messagingTemplate = messagingTemplate;
+        this.jdbcTemplate = jdbcTemplate;
         log.info("Configured ChatRoomService with user-service URL: {}", userServiceUrl);
         this.restClient = RestClient.builder()
                 .baseUrl(userServiceUrl)
@@ -114,7 +118,7 @@ public class ChatRoomService {
             throw new IllegalStateException("Only members of this private channel can invite others.");
         }
 
-        // Verify target user exists in user-service
+        // Verify target user exists
         Boolean userExists = checkUserExists(usernameToInvite);
         if (userExists == null || !userExists) {
             throw new IllegalArgumentException("User '" + usernameToInvite + "' does not exist.");
@@ -140,16 +144,18 @@ public class ChatRoomService {
             throw new IllegalArgumentException("Cannot create a DM room with yourself.");
         }
 
-        // Verify userB exists in user-service
+        // Verify userB exists
         Boolean userExists = checkUserExists(userB);
         if (userExists == null || !userExists) {
             throw new IllegalArgumentException("User '" + userB + "' does not exist.");
         }
 
-        // Unique deterministic name for DM room
-        String dmRoomName = userA.compareTo(userB) < 0
-                ? "dm-" + userA + "-" + userB
-                : "dm-" + userB + "-" + userA;
+        // Unique deterministic name for DM room (case-insensitive sorted)
+        String normA = userA.toLowerCase().trim();
+        String normB = userB.toLowerCase().trim();
+        String dmRoomName = normA.compareTo(normB) < 0
+                ? "dm-" + normA + "-" + normB
+                : "dm-" + normB + "-" + normA;
 
         Optional<ChatRoom> existingRoom = chatRoomRepository.findByName(dmRoomName);
         if (existingRoom.isPresent()) {
@@ -158,7 +164,7 @@ public class ChatRoomService {
 
         ChatRoom newRoom = ChatRoom.builder()
                 .name(dmRoomName)
-                .description("Direct Message between " + userA + " and " + userB)
+                .description("Direct Message between @" + userA + " and @" + userB)
                 .createdBy("system")
                 .type(RoomType.DM)
                 .build();
@@ -178,13 +184,35 @@ public class ChatRoomService {
     }
 
     private Boolean checkUserExists(String username) {
+        if (username == null || username.trim().isEmpty()) {
+            return false;
+        }
+        String cleanUser = username.trim();
+
+        // 1. Direct database check against the shared PostgreSQL DB
         try {
-            return restClient.get()
-                    .uri("/api/users/exists/{username}", username)
+            Integer count = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM users WHERE LOWER(username) = LOWER(?)",
+                    Integer.class,
+                    cleanUser
+            );
+            if (count != null && count > 0) {
+                log.info("Verified user '{}' directly from database.", cleanUser);
+                return true;
+            }
+        } catch (Exception dbEx) {
+            log.warn("Database user check fallback to HTTP for '{}': {}", cleanUser, dbEx.getMessage());
+        }
+
+        // 2. Fallback to HTTP REST call
+        try {
+            Boolean exists = restClient.get()
+                    .uri("/api/users/exists/{username}", cleanUser)
                     .retrieve()
                     .body(Boolean.class);
+            return exists != null && exists;
         } catch (Exception e) {
-            log.error("Failed to verify user existence with user-service for user '{}': {}", username, e.getMessage());
+            log.error("Failed to verify user existence with user-service for user '{}': {}", cleanUser, e.getMessage());
             return false;
         }
     }
