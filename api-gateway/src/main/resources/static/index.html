@@ -721,8 +721,6 @@
         console.error('Failed to parse WebSocket message:', err);
       }
     });
-    
-    stompClient.send('/app/chat.join', {}, JSON.stringify({ roomId: roomId, content: '' }));
   }
 
   async function selectRoom(room) {
@@ -794,7 +792,7 @@
       });
       if (!res.ok) throw new Error();
       const page = await res.json();
-      const messages = (page.content || []).reverse();
+      const messages = (page.content || []).reverse().filter(msg => msg.type === 'CHAT' || !msg.type);
       
       messages.forEach(msg => appendMessage(msg, true));
     } catch(e) {
@@ -817,16 +815,9 @@
   }
 
   function appendMessage(msg, isBulk = false) {
+    if (msg.type === 'JOIN' || msg.type === 'LEAVE') return;
+
     const container = document.getElementById('messages');
-    
-    if (msg.type === 'JOIN' || msg.type === 'LEAVE') {
-      const div = document.createElement('div');
-      div.className = 'system-notification';
-      div.textContent = `${msg.displayName || msg.sender} ${msg.type === 'JOIN' ? 'joined the channel.' : 'left the channel.'}`;
-      container.appendChild(div);
-      lastMessageSender = null;
-      lastMessageTimestamp = null;
-    } else {
       const timeObj = msg.timestamp || msg.createdAt;
       const displayTime = formatTime(timeObj);
       const isConsecutive = (lastMessageSender === msg.sender) && 

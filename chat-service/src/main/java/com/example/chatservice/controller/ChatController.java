@@ -69,22 +69,13 @@ public class ChatController {
         String sender = attrs != null ? (String) attrs.get("username") : "anonymous";
         String displayName = attrs != null ? (String) attrs.get("displayName") : sender;
 
-        ChatMessage saved = chatMessageRepository.save(ChatMessage.builder()
-                .roomId(payload.getRoomId())
-                .sender(sender)
-                .displayName(displayName)
-                .content(displayName + " joined the channel.")
-                .type(ChatMessage.MessageType.JOIN)
-                .build());
-
-        LocalDateTime joinTime = saved.getCreatedAt() != null ? saved.getCreatedAt() : LocalDateTime.now();
         KafkaChatMessage kafkaMsg = KafkaChatMessage.builder()
                 .roomId(payload.getRoomId())
                 .sender(sender)
                 .displayName(displayName)
                 .content(displayName + " joined the channel.")
                 .type(ChatMessage.MessageType.JOIN)
-                .timestamp(joinTime)
+                .timestamp(LocalDateTime.now())
                 .build();
 
         String destination = "/topic/room/" + payload.getRoomId();
