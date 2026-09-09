@@ -41,13 +41,14 @@ public class ChatController {
                 .build());
 
         // Publish to Kafka for broadcast
+        LocalDateTime msgTime = saved.getCreatedAt() != null ? saved.getCreatedAt() : LocalDateTime.now();
         KafkaChatMessage kafkaMsg = KafkaChatMessage.builder()
                 .roomId(payload.getRoomId())
                 .sender(sender)
                 .displayName(displayName)
                 .content(payload.getContent())
                 .type(ChatMessage.MessageType.CHAT)
-                .timestamp(saved.getCreatedAt())
+                .timestamp(msgTime)
                 .build();
         kafkaProducerService.sendMessage(kafkaMsg);
         metricsService.incrementMessageCount();
@@ -68,13 +69,14 @@ public class ChatController {
                 .type(ChatMessage.MessageType.JOIN)
                 .build());
 
+        LocalDateTime joinTime = saved.getCreatedAt() != null ? saved.getCreatedAt() : LocalDateTime.now();
         KafkaChatMessage kafkaMsg = KafkaChatMessage.builder()
                 .roomId(payload.getRoomId())
                 .sender(sender)
                 .displayName(displayName)
                 .content(displayName + " joined the room")
                 .type(ChatMessage.MessageType.JOIN)
-                .timestamp(saved.getCreatedAt())
+                .timestamp(joinTime)
                 .build();
         kafkaProducerService.sendMessage(kafkaMsg);
         log.info("User {} joined room {}", sender, payload.getRoomId());
