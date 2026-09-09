@@ -27,12 +27,14 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
 
         if (tokenParams == null || tokenParams.isEmpty()) {
             log.warn("WebSocket connection rejected: missing token");
+            response.setStatusCode(org.springframework.http.HttpStatus.UNAUTHORIZED);
             return false;
         }
 
         String token = tokenParams.get(0);
         if (!jwtService.isTokenValid(token)) {
             log.warn("WebSocket connection rejected: invalid token");
+            response.setStatusCode(org.springframework.http.HttpStatus.UNAUTHORIZED);
             return false;
         }
 

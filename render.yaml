@@ -1,0 +1,111 @@
+services:
+  # -------------------------------------------------------------
+  # 1. API Gateway (Public Web Service)
+  # Single public entry point for REST API, WebSockets & UI
+  # -------------------------------------------------------------
+  - type: web
+    name: chat-api-gateway
+    runtime: docker
+    dockerfilePath: ./api-gateway/Dockerfile
+    dockerContext: ./api-gateway
+    plan: free
+    region: oregon
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: USER_SERVICE_URL
+        value: http://user-service:8082
+      - key: CHAT_SERVICE_URL
+        value: http://chat-service:8081
+      - key: CHAT_SERVICE_WS_URL
+        value: ws://chat-service:8081
+      - key: JWT_SECRET
+        generateValue: true
+      - key: RATE_LIMIT_CAPACITY
+        value: 50
+      - key: RATE_LIMIT_REFILL_TOKENS
+        value: 50
+      - key: RATE_LIMIT_REFILL_SECONDS
+        value: 10
+
+  # -------------------------------------------------------------
+  # 2. User Service (Private Service - Auth & Accounts)
+  # Internal service unreachable from public internet
+  # -------------------------------------------------------------
+  - type: pserv
+    name: user-service
+    runtime: docker
+    dockerfilePath: ./user-service/Dockerfile
+    dockerContext: ./user-service
+    plan: free
+    region: oregon
+    envVars:
+      - key: PORT
+        value: 8082
+      - key: SPRING_DATASOURCE_URL
+        fromDatabase:
+          name: chat-broker-postgres
+          property: connectionString
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: chat-broker-postgres
+          property: user
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: chat-broker-postgres
+          property: password
+      - key: JWT_SECRET
+        fromService:
+          type: web
+          name: chat-api-gateway
+          envVarKey: JWT_SECRET
+
+  # -------------------------------------------------------------
+  # 3. Chat Service (Private Service - STOMP Broker & Kafka)
+  # -------------------------------------------------------------
+  - type: pserv
+    name: chat-service
+    runtime: docker
+    dockerfilePath: ./chat-service/Dockerfile
+    dockerContext: ./chat-service
+    plan: free
+    region: oregon
+    envVars:
+      - key: PORT
+        value: 8081
+      - key: SPRING_DATASOURCE_URL
+        fromDatabase:
+          name: chat-broker-postgres
+          property: connectionString
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: chat-broker-postgres
+          property: user
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: chat-broker-postgres
+          property: password
+      - key: JWT_SECRET
+        fromService:
+          type: web
+          name: chat-api-gateway
+          envVarKey: JWT_SECRET
+      # Aiven.io Cloud Kafka Configuration
+      - key: SPRING_KAFKA_BOOTSTRAP_SERVERS
+        value: kakfaprovider-websocketmessagebroker.k.aivencloud.com:11643
+      - key: KAFKA_SECURITY_PROTOCOL
+        value: SASL_SSL
+      - key: KAFKA_SASL_MECHANISM
+        value: SCRAM-SHA-256
+      - key: KAFKA_SASL_JAAS_CONFIG
+        sync: false
+
+databases:
+  # -------------------------------------------------------------
+  # Managed PostgreSQL Database
+  # -------------------------------------------------------------
+  - name: chat-broker-postgres
+    plan: free
+    region: oregon
+    databaseName: chatbrokerdb
+    user: chatuser
