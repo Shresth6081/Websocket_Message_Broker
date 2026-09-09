@@ -29,10 +29,9 @@ services:
         value: 10
 
   # -------------------------------------------------------------
-  # 2. User Service (Private Service - Auth & Accounts)
-  # Internal service unreachable from public internet
+  # 2. User Service (Web Service - Free Plan Compatible)
   # -------------------------------------------------------------
-  - type: pserv
+  - type: web
     name: user-service
     runtime: docker
     dockerfilePath: ./user-service/Dockerfile
@@ -61,9 +60,9 @@ services:
           envVarKey: JWT_SECRET
 
   # -------------------------------------------------------------
-  # 3. Chat Service (Private Service - STOMP Broker & Kafka)
+  # 3. Chat Service (Web Service - Free Plan Compatible)
   # -------------------------------------------------------------
-  - type: pserv
+  - type: web
     name: chat-service
     runtime: docker
     dockerfilePath: ./chat-service/Dockerfile
