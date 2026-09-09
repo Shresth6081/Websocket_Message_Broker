@@ -84,6 +84,8 @@ services:
         fromDatabase:
           name: chat-broker-postgres
           property: password
+      - key: USER_SERVICE_URL
+        value: https://user-service-fcxc.onrender.com
       - key: JWT_SECRET
         fromService:
           type: web
