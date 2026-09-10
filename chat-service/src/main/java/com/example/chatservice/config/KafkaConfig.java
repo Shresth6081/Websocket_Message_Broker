@@ -11,6 +11,7 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.config.SaslConfigs;
+import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
@@ -49,9 +50,26 @@ public class KafkaConfig {
     @Value("${KAFKA_SASL_PASSWORD:}")
     private String saslPassword;
 
+    @Value("${KAFKA_CA_CERT:${spring.kafka.properties.ssl.truststore.certificates:}}")
+    private String caCert;
+
+    @Value("${KAFKA_TRUSTSTORE_LOCATION:${spring.kafka.properties.ssl.truststore.location:}}")
+    private String truststoreLocation;
+
     private Map<String, Object> getCommonConfigs() {
         Map<String, Object> props = new HashMap<>();
         props.put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+
+        // Configure SSL CA Certificate if provided (solves PKIX path building failed error)
+        if (caCert != null && !caCert.trim().isEmpty()) {
+            props.put(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG, "PEM");
+            String formattedCert = caCert.replace("\\n", "\n").trim();
+            props.put(SslConfigs.SSL_TRUSTSTORE_CERTIFICATES_CONFIG, formattedCert);
+            log.info("Configured Kafka SSL PEM truststore certificate");
+        } else if (truststoreLocation != null && !truststoreLocation.trim().isEmpty()) {
+            props.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, truststoreLocation.trim());
+            log.info("Configured Kafka SSL truststore location: {}", truststoreLocation);
+        }
 
         if (securityProtocol != null && securityProtocol.trim().toUpperCase().startsWith("SASL")) {
             props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, securityProtocol.trim());
