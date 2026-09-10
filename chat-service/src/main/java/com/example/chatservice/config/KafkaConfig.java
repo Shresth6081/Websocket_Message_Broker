@@ -56,19 +56,48 @@ public class KafkaConfig {
     @Value("${KAFKA_TRUSTSTORE_LOCATION:${spring.kafka.properties.ssl.truststore.location:}}")
     private String truststoreLocation;
 
+    private String formatPemCertificate(String rawCert) {
+        if (rawCert == null || rawCert.trim().isEmpty()) {
+            return null;
+        }
+        String cert = rawCert.trim();
+        // Strip surrounding quotes if present
+        if ((cert.startsWith("\"") && cert.endsWith("\"")) || (cert.startsWith("'") && cert.endsWith("'"))) {
+            cert = cert.substring(1, cert.length() - 1).trim();
+        }
+        // Normalize all newline formats
+        cert = cert.replace("\\n", "\n").replace("\\r", "").replace("\r", "");
+
+        // If BEGIN/END headers are missing, wrap the base64 content
+        if (!cert.contains("BEGIN CERTIFICATE")) {
+            String clean = cert.replaceAll("\\s+", "");
+            cert = "-----BEGIN CERTIFICATE-----\n" + clean + "\n-----END CERTIFICATE-----";
+        } else {
+            // Ensure proper line breaks after BEGIN and before END
+            cert = cert.replace("-----BEGIN CERTIFICATE-----", "-----BEGIN CERTIFICATE-----\n");
+            cert = cert.replace("-----END CERTIFICATE-----", "\n-----END CERTIFICATE-----");
+            cert = cert.replaceAll("\n+", "\n").trim();
+        }
+        return cert;
+    }
+
     private Map<String, Object> getCommonConfigs() {
         Map<String, Object> props = new HashMap<>();
         props.put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
 
-        // Configure SSL CA Certificate if provided (solves PKIX path building failed error)
-        if (caCert != null && !caCert.trim().isEmpty()) {
+        // Configure SSL CA Certificate (solves PKIX path building failed error)
+        String formattedCert = formatPemCertificate(caCert);
+        if (formattedCert != null) {
             props.put(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG, "PEM");
-            String formattedCert = caCert.replace("\\n", "\n").trim();
             props.put(SslConfigs.SSL_TRUSTSTORE_CERTIFICATES_CONFIG, formattedCert);
-            log.info("Configured Kafka SSL PEM truststore certificate");
+            props.put(SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, "https");
+            log.info("[KAFKA SSL] Successfully configured SSL PEM truststore certificate (length: {} chars, header: {})",
+                    formattedCert.length(), formattedCert.startsWith("-----BEGIN CERTIFICATE-----"));
         } else if (truststoreLocation != null && !truststoreLocation.trim().isEmpty()) {
             props.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, truststoreLocation.trim());
-            log.info("Configured Kafka SSL truststore location: {}", truststoreLocation);
+            log.info("[KAFKA SSL] Configured SSL truststore location: {}", truststoreLocation);
+        } else {
+            log.warn("[KAFKA SSL WARNING] No KAFKA_CA_CERT found! Kafka client is using default system truststore which will fail with Aiven self-signed CA.");
         }
 
         if (securityProtocol != null && securityProtocol.trim().toUpperCase().startsWith("SASL")) {
@@ -120,7 +149,9 @@ public class KafkaConfig {
     @Bean
     public KafkaAdmin kafkaAdmin() {
         Map<String, Object> configs = getCommonConfigs();
-        return new KafkaAdmin(configs);
+        KafkaAdmin admin = new KafkaAdmin(configs);
+        admin.setFatalIfBrokerNotAvailable(false);
+        return admin;
     }
 
     @Bean
