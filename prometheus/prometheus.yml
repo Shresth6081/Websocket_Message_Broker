@@ -2,21 +2,30 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
+remote_write:
+  - url: https://prometheus-prod-43-prod-ap-south-1.grafana.net/api/prom/push
+    basic_auth:
+      username: "3572018"
+      password_file: /etc/prometheus/remote_write_token
+
 scrape_configs:
   - job_name: 'api-gateway'
     metrics_path: '/actuator/prometheus'
+    scheme: https
     static_configs:
-      - targets: ['api-gateway:8080']
+      - targets: ['chat-api-gateway-40se.onrender.com:443']
 
   - job_name: 'user-service'
     metrics_path: '/actuator/prometheus'
+    scheme: https
     static_configs:
-      - targets: ['user-service:8082']
+      - targets: ['user-service-fcxc.onrender.com:443']
 
   - job_name: 'chat-service'
     metrics_path: '/actuator/prometheus'
+    scheme: https
     static_configs:
-      - targets: ['chat-service:8081']
+      - targets: ['chat-service-0yxi.onrender.com:443']
 
   - job_name: 'prometheus'
     static_configs:

@@ -53,3 +53,8 @@ buildNumber.properties
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Secrets and Tokens
+prometheus/remote_write_token
+*.token
+
